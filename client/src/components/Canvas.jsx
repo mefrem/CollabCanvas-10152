@@ -1,0 +1,745 @@
+import { useEffect, useRef, useState, useCallback } from "react";
+import { fabric } from "fabric";
+import Toolbar from "./Toolbar";
+import CursorOverlay from "./CursorOverlay";
+import ColorPicker from "./ColorPicker";
+import AICommandInput from "./AICommandInput";
+import { useYjs } from "../hooks/useYjs";
+import { useSocketCursors } from "../hooks/useSocketCursors";
+import {
+  createRectangle,
+  createCircle,
+  createTriangle,
+  createText,
+  getCanvasCenter,
+  duplicateObject,
+  setupCanvasEvents,
+  cleanupCanvasEvents,
+} from "../utils/fabricHelpers";
+
+const Canvas = ({ user, onLogout }) => {
+  const canvasRef = useRef(null);
+  const fabricCanvasRef = useRef(null);
+  const [activeTool, setActiveTool] = useState("select");
+  const [selectedObjects, setSelectedObjects] = useState([]);
+  const [isAILoading, setIsAILoading] = useState(false);
+
+  // Fixed canvas ID for now - in production this would be dynamic
+  const canvasId = "default-canvas";
+
+  // Initialize Yjs integration
+  const {
+    connectionStatus,
+    addObjectToYjs,
+    updateObjectInYjs,
+    removeObjectFromYjs,
+    getCanvasState,
+    applyAICommand,
+    isUpdatingFromYjs,
+    saveNow,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+  } = useYjs(canvasId, user, fabricCanvasRef.current);
+
+  // Initialize cursor synchronization
+  const { cursors, connectedUsers, userCount } = useSocketCursors(
+    canvasId,
+    user,
+    fabricCanvasRef.current
+  );
+
+  // Initialize Fabric.js canvas
+  useEffect(() => {
+    if (!canvasRef.current) return;
+
+    const canvas = new fabric.Canvas(canvasRef.current, {
+      width: 800,
+      height: 600,
+      backgroundColor: "#ffffff",
+      selection: true,
+      preserveObjectStacking: true,
+    });
+
+    fabricCanvasRef.current = canvas;
+
+    // Set up canvas events
+    setupCanvasEvents(canvas, {
+      onObjectAdded: handleObjectAdded,
+      onObjectModified: handleObjectModified,
+      onObjectRemoved: handleObjectRemoved,
+      onSelectionCreated: handleSelectionCreated,
+      onSelectionUpdated: handleSelectionUpdated,
+      onSelectionCleared: handleSelectionCleared,
+    });
+
+    // Set up keyboard event handlers
+    const handleKeyDown = (e) => {
+      if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA")
+        return;
+
+      const activeObjects = canvas.getActiveObjects();
+
+      // Delete key
+      if (e.key === "Delete" && activeObjects.length > 0) {
+        activeObjects.forEach((obj) => canvas.remove(obj));
+        canvas.discardActiveObject();
+        canvas.renderAll();
+      }
+
+      // Arrow keys for nudging
+      if (
+        ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.key) &&
+        activeObjects.length > 0
+      ) {
+        e.preventDefault();
+        const distance = e.shiftKey ? 50 : 10;
+
+        activeObjects.forEach((obj) => {
+          switch (e.key) {
+            case "ArrowUp":
+              obj.top -= distance;
+              break;
+            case "ArrowDown":
+              obj.top += distance;
+              break;
+            case "ArrowLeft":
+              obj.left -= distance;
+              break;
+            case "ArrowRight":
+              obj.left += distance;
+              break;
+          }
+          obj.setCoords();
+        });
+
+        canvas.renderAll();
+        handleObjectModified({ target: activeObjects[0] });
+      }
+
+      // Duplicate (Cmd/Ctrl + D)
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key === "d" &&
+        activeObjects.length > 0
+      ) {
+        e.preventDefault();
+        handleDuplicate();
+      }
+
+      // Undo (Cmd/Ctrl + Z)
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      }
+
+      // Redo (Cmd/Ctrl + Shift + Z)
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    // Set up mouse event handlers for creating objects
+    const handleMouseDown = (options) => {
+      if (activeTool === "select") return;
+
+      const pointer = canvas.getPointer(options.e);
+      let newObj = null;
+
+      switch (activeTool) {
+        case "rectangle":
+          newObj = createRectangle(pointer.x - 50, pointer.y - 50);
+          break;
+        case "circle":
+          newObj = createCircle(pointer.x - 50, pointer.y - 50);
+          break;
+        case "triangle":
+          newObj = createTriangle(pointer.x - 50, pointer.y - 50);
+          break;
+        case "text":
+          newObj = createText(pointer.x, pointer.y);
+          break;
+      }
+
+      if (newObj) {
+        canvas.add(newObj);
+        canvas.setActiveObject(newObj);
+        canvas.renderAll();
+
+        // Switch back to select tool after creating object
+        setActiveTool("select");
+      }
+    };
+
+    // Set up pan and zoom
+    let isPanning = false;
+    let lastPosX = 0;
+    let lastPosY = 0;
+
+    const handleMouseDown2 = (opt) => {
+      const evt = opt.e;
+      if (evt.ctrlKey || evt.metaKey || evt.spaceKey || evt.code === "Space") {
+        isPanning = true;
+        canvas.selection = false;
+        lastPosX = evt.clientX;
+        lastPosY = evt.clientY;
+        canvas.setCursor("grab");
+      }
+    };
+
+    const handleMouseMove = (opt) => {
+      if (isPanning) {
+        const evt = opt.e;
+        const vpt = canvas.viewportTransform;
+        vpt[4] += evt.clientX - lastPosX;
+        vpt[5] += evt.clientY - lastPosY;
+        canvas.requestRenderAll();
+        lastPosX = evt.clientX;
+        lastPosY = evt.clientY;
+      }
+    };
+
+    const handleMouseUp = () => {
+      if (isPanning) {
+        canvas.setCursor("default");
+        canvas.selection = true;
+        isPanning = false;
+      }
+    };
+
+    // Mouse wheel zoom
+    const handleMouseWheel = (opt) => {
+      const delta = opt.e.deltaY;
+      let zoom = canvas.getZoom();
+      zoom *= 0.999 ** delta;
+
+      if (zoom > 20) zoom = 20;
+      if (zoom < 0.01) zoom = 0.01;
+
+      canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    };
+
+    // Add event listeners
+    document.addEventListener("keydown", handleKeyDown);
+    canvas.on("mouse:down", handleMouseDown);
+    canvas.on("mouse:down", handleMouseDown2);
+    canvas.on("mouse:move", handleMouseMove);
+    canvas.on("mouse:up", handleMouseUp);
+    canvas.on("mouse:wheel", handleMouseWheel);
+
+    // Space key handling for panning
+    const handleDocKeyDown = (e) => {
+      if (e.code === "Space" && !e.repeat && e.target === document.body) {
+        e.preventDefault();
+        canvas.defaultCursor = "grab";
+        canvas.setCursor("grab");
+      }
+    };
+
+    const handleDocKeyUp = (e) => {
+      if (e.code === "Space") {
+        canvas.defaultCursor = "default";
+        canvas.setCursor("default");
+      }
+    };
+
+    document.addEventListener("keydown", handleDocKeyDown);
+    document.addEventListener("keyup", handleDocKeyUp);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("keydown", handleDocKeyDown);
+      document.removeEventListener("keyup", handleDocKeyUp);
+      cleanupCanvasEvents(canvas);
+      canvas.dispose();
+    };
+  }, [activeTool]);
+
+  // Canvas event handlers
+  const handleObjectAdded = useCallback(
+    (e) => {
+      console.log("Object added:", e.target.uuid);
+      if (!isUpdatingFromYjs && e.target.uuid) {
+        // Add to Yjs only if it's a user action, not from Yjs sync
+        addObjectToYjs(e.target);
+      }
+    },
+    [addObjectToYjs, isUpdatingFromYjs]
+  );
+
+  const handleObjectModified = useCallback(
+    (e) => {
+      console.log("Object modified:", e.target.uuid);
+      if (!isUpdatingFromYjs && e.target.uuid) {
+        // Throttle updates to prevent too many network calls
+        setTimeout(() => {
+          updateObjectInYjs(e.target);
+        }, 100);
+      }
+    },
+    [updateObjectInYjs, isUpdatingFromYjs]
+  );
+
+  const handleObjectRemoved = useCallback(
+    (e) => {
+      console.log("Object removed:", e.target.uuid);
+      if (!isUpdatingFromYjs && e.target.uuid) {
+        removeObjectFromYjs(e.target.uuid);
+      }
+    },
+    [removeObjectFromYjs, isUpdatingFromYjs]
+  );
+
+  const handleSelectionCreated = useCallback((e) => {
+    setSelectedObjects(e.selected || []);
+  }, []);
+
+  const handleSelectionUpdated = useCallback((e) => {
+    setSelectedObjects(e.selected || []);
+  }, []);
+
+  const handleSelectionCleared = useCallback(() => {
+    setSelectedObjects([]);
+  }, []);
+
+  // Tool handlers
+  const handleToolChange = (tool) => {
+    setActiveTool(tool);
+  };
+
+  // Color change handler
+  const handleColorChange = (color, objects) => {
+    // Update objects in Yjs
+    objects.forEach((obj) => {
+      if (obj.uuid && !isUpdatingFromYjs) {
+        updateObjectInYjs(obj);
+      }
+    });
+  };
+
+  // AI command execution
+  const handleAICommand = async (command) => {
+    if (!command.trim())
+      return { success: false, message: "Please enter a command" };
+
+    setIsAILoading(true);
+
+    try {
+      // Get current canvas state
+      const canvasState = getCanvasState();
+
+      console.log("Executing AI command:", command);
+      console.log("Canvas state:", canvasState);
+
+      // Send command to server
+      const response = await fetch("/api/ai/command", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          command,
+          canvasState,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || "AI command failed");
+      }
+
+      const result = await response.json();
+      console.log("AI result:", result);
+
+      // Apply the AI command result to the canvas
+      await applyAICommand(result);
+
+      return {
+        success: true,
+        message: result.explanation || "AI command executed successfully",
+      };
+    } catch (error) {
+      console.error("AI command error:", error);
+      return {
+        success: false,
+        message: error.message || "Failed to execute AI command",
+      };
+    } finally {
+      setIsAILoading(false);
+    }
+  };
+
+  const handleDuplicate = () => {
+    const canvas = fabricCanvasRef.current;
+    const activeObjects = canvas.getActiveObjects();
+
+    if (activeObjects.length > 0) {
+      const duplicates = activeObjects.map((obj) => duplicateObject(obj));
+
+      duplicates.forEach((duplicate) => {
+        canvas.add(duplicate);
+        // The object:added event will handle adding to Yjs
+      });
+
+      // Select the duplicated objects
+      if (duplicates.length === 1) {
+        canvas.setActiveObject(duplicates[0]);
+      } else {
+        const selection = new fabric.ActiveSelection(duplicates, { canvas });
+        canvas.setActiveObject(selection);
+      }
+
+      canvas.renderAll();
+    }
+  };
+
+  const handleUndo = () => {
+    undo();
+  };
+
+  const handleRedo = () => {
+    redo();
+  };
+
+  const handleFitToScreen = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const objects = canvas.getObjects();
+    if (objects.length === 0) {
+      canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+      canvas.renderAll();
+      return;
+    }
+
+    const group = new fabric.Group(objects);
+    const groupWidth = group.width;
+    const groupHeight = group.height;
+    const groupLeft = group.left;
+    const groupTop = group.top;
+
+    canvas.remove(group);
+    objects.forEach((obj) => canvas.add(obj));
+
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+
+    const scaleX = (canvasWidth - 100) / groupWidth;
+    const scaleY = (canvasHeight - 100) / groupHeight;
+    const scale = Math.min(scaleX, scaleY, 1);
+
+    const centerX = canvasWidth / 2;
+    const centerY = canvasHeight / 2;
+    const objectCenterX = groupLeft + groupWidth / 2;
+    const objectCenterY = groupTop + groupHeight / 2;
+
+    const deltaX = centerX - objectCenterX * scale;
+    const deltaY = centerY - objectCenterY * scale;
+
+    canvas.setViewportTransform([scale, 0, 0, scale, deltaX, deltaY]);
+    canvas.renderAll();
+  };
+
+  return (
+    <div className="canvas-container">
+      {/* Connection Status */}
+      <div className="connection-status">
+        <div className={`status-dot status-${connectionStatus}`}></div>
+        <span>
+          {connectionStatus === "connected" && "Connected"}
+          {connectionStatus === "reconnecting" && "Reconnecting..."}
+          {connectionStatus === "disconnected" && "Disconnected"}
+        </span>
+        <span style={{ marginLeft: "10px", fontSize: "12px", color: "#666" }}>
+          {userCount} user{userCount !== 1 ? "s" : ""} online
+        </span>
+      </div>
+
+      {/* User Info & Logout */}
+      <div
+        style={{
+          position: "absolute",
+          top: "20px",
+          right: "200px",
+          zIndex: 1000,
+          background: "white",
+          padding: "8px 12px",
+          borderRadius: "6px",
+          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+        }}
+      >
+        <span style={{ fontSize: "14px" }}>Welcome, {user.username}!</span>
+        <button
+          onClick={onLogout}
+          style={{
+            padding: "4px 8px",
+            background: "#dc3545",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            fontSize: "12px",
+            cursor: "pointer",
+          }}
+        >
+          Logout
+        </button>
+      </div>
+
+      {/* Toolbar */}
+      <Toolbar
+        activeTool={activeTool}
+        onToolChange={handleToolChange}
+        onUndo={handleUndo}
+        onRedo={handleRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+      />
+
+      {/* Color Picker */}
+      <ColorPicker
+        selectedObjects={selectedObjects}
+        onColorChange={handleColorChange}
+        fabricCanvas={fabricCanvasRef.current}
+      />
+
+      {/* Zoom Controls */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "20px",
+          right: "20px",
+          zIndex: 1000,
+          background: "white",
+          borderRadius: "8px",
+          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
+          padding: "10px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "5px",
+        }}
+      >
+        <button
+          onClick={() => {
+            const canvas = fabricCanvasRef.current;
+            const zoom = canvas.getZoom();
+            canvas.setZoom(Math.min(zoom * 1.2, 3));
+          }}
+          style={{
+            padding: "5px 10px",
+            border: "1px solid #ddd",
+            borderRadius: "4px",
+            background: "white",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Zoom In
+        </button>
+        <button
+          onClick={() => {
+            const canvas = fabricCanvasRef.current;
+            const zoom = canvas.getZoom();
+            canvas.setZoom(Math.max(zoom * 0.8, 0.1));
+          }}
+          style={{
+            padding: "5px 10px",
+            border: "1px solid #ddd",
+            borderRadius: "4px",
+            background: "white",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Zoom Out
+        </button>
+        <button
+          onClick={handleFitToScreen}
+          style={{
+            padding: "5px 10px",
+            border: "1px solid #ddd",
+            borderRadius: "4px",
+            background: "white",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Fit Screen
+        </button>
+        <div
+          style={{
+            width: "100%",
+            height: "1px",
+            background: "#ddd",
+            margin: "5px 0",
+          }}
+        />
+        <button
+          onClick={async () => {
+            const success = await saveNow();
+            if (success) {
+              // Show temporary success message
+              const button = event.target;
+              const originalText = button.textContent;
+              button.textContent = "Saved!";
+              button.style.background = "#22c55e";
+              setTimeout(() => {
+                button.textContent = originalText;
+                button.style.background = "white";
+              }, 2000);
+            }
+          }}
+          style={{
+            padding: "5px 10px",
+            border: "1px solid #ddd",
+            borderRadius: "4px",
+            background: "white",
+            cursor: "pointer",
+            fontSize: "12px",
+          }}
+        >
+          Save Now
+        </button>
+      </div>
+
+      {/* Object Info */}
+      {selectedObjects.length > 0 && (
+        <div
+          style={{
+            position: "absolute",
+            bottom: "20px",
+            left: "20px",
+            zIndex: 1000,
+            background: "white",
+            borderRadius: "8px",
+            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
+            padding: "10px",
+            fontSize: "12px",
+            minWidth: "200px",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+            Selected: {selectedObjects.length} object
+            {selectedObjects.length > 1 ? "s" : ""}
+          </div>
+          {selectedObjects.length === 1 && (
+            <div>
+              <div>Type: {selectedObjects[0].type}</div>
+              <div>
+                Position: ({Math.round(selectedObjects[0].left)},{" "}
+                {Math.round(selectedObjects[0].top)})
+              </div>
+              {selectedObjects[0].type === "rect" && (
+                <div>
+                  Size: {Math.round(selectedObjects[0].width)} ×{" "}
+                  {Math.round(selectedObjects[0].height)}
+                </div>
+              )}
+              {selectedObjects[0].type === "circle" && (
+                <div>Radius: {Math.round(selectedObjects[0].radius)}</div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* AI Command Input */}
+      <AICommandInput
+        onExecuteCommand={handleAICommand}
+        isLoading={isAILoading}
+      />
+
+      {/* Canvas */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          background: "#f8f9fa",
+          position: "relative",
+        }}
+      >
+        <div style={{ position: "relative" }}>
+          <canvas
+            ref={canvasRef}
+            style={{
+              border: "1px solid #ddd",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+              borderRadius: "4px",
+            }}
+          />
+          {/* Cursor Overlay */}
+          <CursorOverlay cursors={cursors} />
+        </div>
+      </div>
+
+      {/* Instructions */}
+      <div
+        style={{
+          position: "absolute",
+          top: "80px",
+          left: "20px",
+          zIndex: 1000,
+          background: "white",
+          borderRadius: "8px",
+          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
+          padding: "15px",
+          fontSize: "12px",
+          maxWidth: "250px",
+          lineHeight: "1.4",
+        }}
+      >
+        <div style={{ fontWeight: "bold", marginBottom: "8px" }}>Controls:</div>
+        <div>• Select tool: Click to select objects</div>
+        <div>• Shape tools: Click to create shapes</div>
+        <div>• Space + Drag: Pan canvas</div>
+        <div>• Mouse wheel: Zoom in/out</div>
+        <div>• Delete: Remove selected objects</div>
+        <div>• Arrow keys: Nudge objects (Shift for larger steps)</div>
+        <div>• Cmd/Ctrl + D: Duplicate objects</div>
+        <div>• Shift + Click: Multi-select</div>
+        <div
+          style={{
+            marginTop: "8px",
+            paddingTop: "8px",
+            borderTop: "1px solid #eee",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+            Features:
+          </div>
+          <div>• Real-time collaboration</div>
+          <div>• Auto-save every 30 seconds</div>
+          <div>• Canvas persists on refresh</div>
+          <div>• AI assistant at bottom of screen</div>
+        </div>
+        <div
+          style={{
+            marginTop: "8px",
+            paddingTop: "8px",
+            borderTop: "1px solid #eee",
+          }}
+        >
+          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
+            AI Commands:
+          </div>
+          <div>• "Create a red circle"</div>
+          <div>• "Move circle to center"</div>
+          <div>• "Create a login form"</div>
+          <div>• "Make navigation bar"</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Canvas;

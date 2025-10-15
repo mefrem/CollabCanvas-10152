@@ -1,0 +1,180 @@
+import { fabric } from "fabric";
+import { v4 as uuidv4 } from "uuid";
+
+// Generate random colors for new objects
+export const getRandomColor = () => {
+  const colors = [
+    "#3B82F6",
+    "#EF4444",
+    "#10B981",
+    "#F59E0B",
+    "#8B5CF6",
+    "#F97316",
+    "#EC4899",
+    "#6B7280",
+    "#14B8A6",
+    "#F43F5E",
+    "#8E4EC6",
+    "#F97500",
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
+
+// Create fabric rectangle
+export const createRectangle = (x = 100, y = 100) => {
+  const rect = new fabric.Rect({
+    left: x,
+    top: y,
+    width: 100,
+    height: 100,
+    fill: getRandomColor(),
+    stroke: "#000",
+    strokeWidth: 1,
+    selectable: true,
+    evented: true,
+  });
+
+  rect.uuid = uuidv4();
+  return rect;
+};
+
+// Create fabric circle
+export const createCircle = (x = 100, y = 100) => {
+  const circle = new fabric.Circle({
+    left: x,
+    top: y,
+    radius: 50,
+    fill: getRandomColor(),
+    stroke: "#000",
+    strokeWidth: 1,
+    selectable: true,
+    evented: true,
+  });
+
+  circle.uuid = uuidv4();
+  return circle;
+};
+
+// Create fabric triangle
+export const createTriangle = (x = 100, y = 100) => {
+  const triangle = new fabric.Triangle({
+    left: x,
+    top: y,
+    width: 100,
+    height: 100,
+    fill: getRandomColor(),
+    stroke: "#000",
+    strokeWidth: 1,
+    selectable: true,
+    evented: true,
+  });
+
+  triangle.uuid = uuidv4();
+  return triangle;
+};
+
+// Create fabric text
+export const createText = (x = 100, y = 100, text = "Double click to edit") => {
+  const textObj = new fabric.IText(text, {
+    left: x,
+    top: y,
+    fontSize: 16,
+    fill: "#000",
+    fontFamily: "Arial",
+    selectable: true,
+    evented: true,
+    editable: true,
+  });
+
+  textObj.uuid = uuidv4();
+  return textObj;
+};
+
+// Serialize fabric object for Yjs
+export const serializeFabricObject = (obj) => {
+  const json = obj.toJSON(["uuid"]);
+  return {
+    ...json,
+    uuid: obj.uuid,
+  };
+};
+
+// Deserialize fabric object from Yjs
+export const deserializeFabricObject = (data) => {
+  return new Promise((resolve) => {
+    fabric.util.enlivenObjects([data], (objects) => {
+      const obj = objects[0];
+      obj.uuid = data.uuid;
+      resolve(obj);
+    });
+  });
+};
+
+// Get canvas center point for positioning
+export const getCanvasCenter = (canvas) => {
+  return {
+    x: canvas.width / 2,
+    y: canvas.height / 2,
+  };
+};
+
+// Duplicate selected object
+export const duplicateObject = (obj) => {
+  const clonedObj = fabric.util.object.clone(obj);
+  clonedObj.uuid = uuidv4();
+  clonedObj.left += 20;
+  clonedObj.top += 20;
+  return clonedObj;
+};
+
+// Set up canvas event handlers
+export const setupCanvasEvents = (canvas, callbacks) => {
+  const {
+    onObjectAdded,
+    onObjectModified,
+    onObjectRemoved,
+    onSelectionCreated,
+    onSelectionUpdated,
+    onSelectionCleared,
+  } = callbacks;
+
+  if (onObjectAdded) {
+    canvas.on("object:added", onObjectAdded);
+  }
+
+  if (onObjectModified) {
+    canvas.on("object:modified", onObjectModified);
+    canvas.on("object:moved", onObjectModified);
+    canvas.on("object:scaled", onObjectModified);
+    canvas.on("object:rotated", onObjectModified);
+  }
+
+  if (onObjectRemoved) {
+    canvas.on("object:removed", onObjectRemoved);
+  }
+
+  if (onSelectionCreated) {
+    canvas.on("selection:created", onSelectionCreated);
+  }
+
+  if (onSelectionUpdated) {
+    canvas.on("selection:updated", onSelectionUpdated);
+  }
+
+  if (onSelectionCleared) {
+    canvas.on("selection:cleared", onSelectionCleared);
+  }
+};
+
+// Clean up canvas events
+export const cleanupCanvasEvents = (canvas) => {
+  canvas.off("object:added");
+  canvas.off("object:modified");
+  canvas.off("object:moved");
+  canvas.off("object:scaled");
+  canvas.off("object:rotated");
+  canvas.off("object:removed");
+  canvas.off("selection:created");
+  canvas.off("selection:updated");
+  canvas.off("selection:cleared");
+};
