@@ -38,6 +38,14 @@ export const useSocketCursors = (canvasId, user, fabricCanvas) => {
       setConnectedUsers([]);
     });
 
+    socket.on("connect_error", (error) => {
+      console.error("Socket.io connection error:", error.message);
+    });
+
+    socket.on("reconnect_attempt", () => {
+      console.log("Attempting to reconnect to Socket.io...");
+    });
+
     // Handle user joined
     socket.on("user-joined", (userData) => {
       console.log("User joined:", userData.username);

@@ -21,13 +21,64 @@ const Canvas = ({ user, onLogout }) => {
   const canvasRef = useRef(null);
   const fabricCanvasRef = useRef(null);
   const [activeTool, setActiveTool] = useState("select");
+  const activeToolRef = useRef("select"); // Ref to track current tool for event handlers
   const [selectedObjects, setSelectedObjects] = useState([]);
   const [isAILoading, setIsAILoading] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [showUsersDropdown, setShowUsersDropdown] = useState(false);
 
   // Fixed canvas ID for now - in production this would be dynamic
   const canvasId = "default-canvas";
 
-  // Initialize Yjs integration
+  // Close users dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showUsersDropdown && !e.target.closest(".connection-status")) {
+        setShowUsersDropdown(false);
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, [showUsersDropdown]);
+
+  const [canvasReady, setCanvasReady] = useState(false);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeToolRef.current = activeTool;
+    console.log("🔧 Active tool changed to:", activeTool);
+  }, [activeTool]);
+
+  // Debug useEffect to track mounting and canvas ready state changes
+  useEffect(() => {
+    console.log("🎨 Canvas component mounted");
+    return () => {
+      console.log("🎨 Canvas component unmounting");
+    };
+  }, []);
+
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    if (canvasReady) return;
+
+    const timeoutId = setTimeout(() => {
+      console.warn(
+        "⚠️ Canvas initialization timeout after 5s - forcing canvas to show"
+      );
+      setCanvasReady(true);
+    }, 5000);
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [canvasReady]);
+
+  useEffect(() => {
+    console.log("🎨 Canvas ready state changed:", canvasReady);
+  }, [canvasReady]);
+
+  // Initialize Yjs integration (only when canvas is ready)
   const {
     connectionStatus,
     addObjectToYjs,
@@ -41,28 +92,43 @@ const Canvas = ({ user, onLogout }) => {
     redo,
     canUndo,
     canRedo,
-  } = useYjs(canvasId, user, fabricCanvasRef.current);
+  } = useYjs(canvasId, user, canvasReady ? fabricCanvasRef.current : null);
 
-  // Initialize cursor synchronization
+  // Initialize cursor synchronization (only when canvas is ready)
   const { cursors, connectedUsers, userCount } = useSocketCursors(
     canvasId,
     user,
-    fabricCanvasRef.current
+    canvasReady ? fabricCanvasRef.current : null
   );
 
   // Initialize Fabric.js canvas
   useEffect(() => {
-    if (!canvasRef.current) return;
+    if (!canvasRef.current) {
+      return;
+    }
 
-    const canvas = new fabric.Canvas(canvasRef.current, {
-      width: 800,
-      height: 600,
-      backgroundColor: "#ffffff",
-      selection: true,
-      preserveObjectStacking: true,
-    });
+    let canvas;
+    try {
+      canvas = new fabric.Canvas(canvasRef.current, {
+        width: 800,
+        height: 600,
+        backgroundColor: "#ffffff",
+        selection: true,
+        preserveObjectStacking: true,
+        // Uncomment these lines to disable object resizing:
+        // uniformScaling: false,
+        // uniScaleKey: null,
+      });
 
-    fabricCanvasRef.current = canvas;
+      fabricCanvasRef.current = canvas;
+
+      // Mark canvas as ready after successful initialization
+      setCanvasReady(true);
+    } catch (error) {
+      console.error("Error initializing Fabric.js canvas:", error);
+      setCanvasReady(false);
+      return;
+    }
 
     // Set up canvas events
     setupCanvasEvents(canvas, {
@@ -81,9 +147,15 @@ const Canvas = ({ user, onLogout }) => {
 
       const activeObjects = canvas.getActiveObjects();
 
-      // Delete key
-      if (e.key === "Delete" && activeObjects.length > 0) {
-        activeObjects.forEach((obj) => canvas.remove(obj));
+      // Delete selected objects (Delete or Backspace key)
+      if (
+        (e.key === "Delete" || e.key === "Backspace") &&
+        activeObjects.length > 0
+      ) {
+        e.preventDefault(); // Prevent browser back navigation on Backspace
+        activeObjects.forEach((obj) => {
+          canvas.remove(obj);
+        });
         canvas.discardActiveObject();
         canvas.renderAll();
       }
@@ -143,12 +215,15 @@ const Canvas = ({ user, onLogout }) => {
 
     // Set up mouse event handlers for creating objects
     const handleMouseDown = (options) => {
-      if (activeTool === "select") return;
+      const currentTool = activeToolRef.current; // Use ref to get current tool
+      console.log("🖱️ Mouse down with tool:", currentTool);
+
+      if (currentTool === "select") return;
 
       const pointer = canvas.getPointer(options.e);
       let newObj = null;
 
-      switch (activeTool) {
+      switch (currentTool) {
         case "rectangle":
           newObj = createRectangle(pointer.x - 50, pointer.y - 50);
           break;
@@ -164,6 +239,21 @@ const Canvas = ({ user, onLogout }) => {
       }
 
       if (newObj) {
+        // Optional: Disable resizing for fixed-size objects
+        // Uncomment these lines if you want fixed-size objects:
+        // newObj.lockScalingX = true;
+        // newObj.lockScalingY = true;
+        // newObj.setControlsVisibility({
+        //   mt: false, // middle top
+        //   mb: false, // middle bottom
+        //   ml: false, // middle left
+        //   mr: false, // middle right
+        //   bl: false, // bottom left
+        //   br: false, // bottom right
+        //   tl: false, // top left
+        //   tr: false, // top right
+        // });
+
         canvas.add(newObj);
         canvas.setActiveObject(newObj);
         canvas.renderAll();
@@ -255,18 +345,34 @@ const Canvas = ({ user, onLogout }) => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keydown", handleDocKeyDown);
       document.removeEventListener("keyup", handleDocKeyUp);
-      cleanupCanvasEvents(canvas);
-      canvas.dispose();
+      setCanvasReady(false);
+      if (canvas) {
+        cleanupCanvasEvents(canvas);
+        canvas.dispose();
+      }
+      fabricCanvasRef.current = null;
     };
-  }, [activeTool]);
+  }, []); // FIXED: Canvas should only initialize once, not when tool changes!
 
   // Canvas event handlers
   const handleObjectAdded = useCallback(
     (e) => {
-      console.log("Object added:", e.target.uuid);
+      console.log(
+        "🎯 Canvas object added:",
+        e.target.type,
+        e.target.uuid,
+        "isUpdatingFromYjs:",
+        isUpdatingFromYjs
+      );
+
       if (!isUpdatingFromYjs && e.target.uuid) {
         // Add to Yjs only if it's a user action, not from Yjs sync
+        console.log("📤 Adding object to Yjs (user action):", e.target.uuid);
         addObjectToYjs(e.target);
+      } else if (isUpdatingFromYjs) {
+        console.log("📥 Object added from Yjs sync, skipping Yjs add");
+      } else if (!e.target.uuid) {
+        console.warn("⚠️ Object added without UUID:", e.target);
       }
     },
     [addObjectToYjs, isUpdatingFromYjs]
@@ -407,6 +513,21 @@ const Canvas = ({ user, onLogout }) => {
     redo();
   };
 
+  // Handle delete via button click
+  const handleDelete = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      activeObjects.forEach((obj) => {
+        canvas.remove(obj);
+      });
+      canvas.discardActiveObject();
+      canvas.renderAll();
+    }
+  };
+
   const handleFitToScreen = () => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return;
@@ -448,17 +569,114 @@ const Canvas = ({ user, onLogout }) => {
 
   return (
     <div className="canvas-container">
-      {/* Connection Status */}
-      <div className="connection-status">
-        <div className={`status-dot status-${connectionStatus}`}></div>
-        <span>
-          {connectionStatus === "connected" && "Connected"}
-          {connectionStatus === "reconnecting" && "Reconnecting..."}
-          {connectionStatus === "disconnected" && "Disconnected"}
-        </span>
-        <span style={{ marginLeft: "10px", fontSize: "12px", color: "#666" }}>
-          {userCount} user{userCount !== 1 ? "s" : ""} online
-        </span>
+      {/* Connection Status with Users Dropdown */}
+      <div style={{ position: "relative" }}>
+        <div
+          className="connection-status"
+          onClick={() =>
+            userCount >= 2 && setShowUsersDropdown(!showUsersDropdown)
+          }
+          style={{
+            cursor: userCount >= 2 ? "pointer" : "default",
+            userSelect: "none",
+          }}
+        >
+          <div className={`status-dot status-${connectionStatus}`}></div>
+          <span>
+            {connectionStatus === "connected" && "Connected"}
+            {connectionStatus === "reconnecting" && "Reconnecting..."}
+            {connectionStatus === "disconnected" && "Disconnected"}
+          </span>
+          <span style={{ marginLeft: "10px", fontSize: "12px", color: "#666" }}>
+            {userCount} user{userCount !== 1 ? "s" : ""} online
+            {userCount >= 2 && <span style={{ marginLeft: "5px" }}>▼</span>}
+          </span>
+        </div>
+
+        {/* Users Dropdown */}
+        {showUsersDropdown && userCount >= 2 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50px",
+              right: "0",
+              background: "white",
+              border: "1px solid #ddd",
+              borderRadius: "8px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+              padding: "12px",
+              minWidth: "200px",
+              zIndex: 1001,
+            }}
+          >
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: "bold",
+                marginBottom: "8px",
+                color: "#333",
+              }}
+            >
+              Connected Users
+            </div>
+
+            {/* Current User */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "6px 8px",
+                borderRadius: "4px",
+                backgroundColor: "#f0f9ff",
+                marginBottom: "4px",
+              }}
+            >
+              <div
+                style={{
+                  width: "12px",
+                  height: "12px",
+                  borderRadius: "50%",
+                  backgroundColor: user.color,
+                  border: "2px solid white",
+                  boxShadow: "0 0 0 1px #ddd",
+                }}
+              />
+              <span style={{ fontSize: "13px", fontWeight: "500" }}>
+                {user.username} (you)
+              </span>
+            </div>
+
+            {/* Other Connected Users */}
+            {connectedUsers.map((connectedUser) => (
+              <div
+                key={connectedUser.userId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "6px 8px",
+                  borderRadius: "4px",
+                  marginBottom: "2px",
+                }}
+              >
+                <div
+                  style={{
+                    width: "12px",
+                    height: "12px",
+                    borderRadius: "50%",
+                    backgroundColor: connectedUser.color,
+                    border: "2px solid white",
+                    boxShadow: "0 0 0 1px #ddd",
+                  }}
+                />
+                <span style={{ fontSize: "13px" }}>
+                  {connectedUser.username}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* User Info & Logout */}
@@ -466,7 +684,7 @@ const Canvas = ({ user, onLogout }) => {
         style={{
           position: "absolute",
           top: "20px",
-          right: "200px",
+          left: "20px",
           zIndex: 1000,
           background: "white",
           padding: "8px 12px",
@@ -502,6 +720,8 @@ const Canvas = ({ user, onLogout }) => {
         onRedo={handleRedo}
         canUndo={canUndo}
         canRedo={canRedo}
+        onDelete={handleDelete}
+        hasSelection={selectedObjects.length > 0}
       />
 
       {/* Color Picker */}
@@ -669,6 +889,55 @@ const Canvas = ({ user, onLogout }) => {
         }}
       >
         <div style={{ position: "relative" }}>
+          {!canvasReady && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: "center",
+                alignItems: "center",
+                zIndex: 10,
+                background: "rgba(248, 249, 250, 0.95)",
+                backdropFilter: "blur(4px)",
+              }}
+            >
+              <div
+                style={{
+                  width: "48px",
+                  height: "48px",
+                  border: "4px solid #e3e6ea",
+                  borderTop: "4px solid #007bff",
+                  borderRadius: "50%",
+                  animation: "spin 1s linear infinite",
+                  margin: "0 auto 16px",
+                }}
+              ></div>
+              <p
+                style={{
+                  color: "#495057",
+                  margin: 0,
+                  fontSize: "16px",
+                  fontWeight: "500",
+                }}
+              >
+                🎨 Initializing canvas...
+              </p>
+              <p
+                style={{
+                  color: "#6c757d",
+                  margin: "8px 0 0 0",
+                  fontSize: "14px",
+                }}
+              >
+                Setting up Fabric.js and collaborative features
+              </p>
+            </div>
+          )}
           <canvas
             ref={canvasRef}
             style={{
@@ -682,61 +951,108 @@ const Canvas = ({ user, onLogout }) => {
         </div>
       </div>
 
-      {/* Instructions */}
+      {/* Collapsible Help Panel */}
       <div
         style={{
           position: "absolute",
-          top: "80px",
+          top: "50%",
           left: "20px",
+          transform: "translateY(-50%)",
           zIndex: 1000,
-          background: "white",
-          borderRadius: "8px",
-          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
-          padding: "15px",
-          fontSize: "12px",
-          maxWidth: "250px",
-          lineHeight: "1.4",
         }}
+        onMouseEnter={() => setShowHelp(true)}
+        onMouseLeave={() => setShowHelp(false)}
       >
-        <div style={{ fontWeight: "bold", marginBottom: "8px" }}>Controls:</div>
-        <div>• Select tool: Click to select objects</div>
-        <div>• Shape tools: Click to create shapes</div>
-        <div>• Space + Drag: Pan canvas</div>
-        <div>• Mouse wheel: Zoom in/out</div>
-        <div>• Delete: Remove selected objects</div>
-        <div>• Arrow keys: Nudge objects (Shift for larger steps)</div>
-        <div>• Cmd/Ctrl + D: Duplicate objects</div>
-        <div>• Shift + Click: Multi-select</div>
+        {/* Help Button */}
         <div
           style={{
-            marginTop: "8px",
-            paddingTop: "8px",
-            borderTop: "1px solid #eee",
+            width: "40px",
+            height: "40px",
+            borderRadius: "50%",
+            background: showHelp ? "#3B82F6" : "#ffffff",
+            color: showHelp ? "#ffffff" : "#3B82F6",
+            border: "2px solid #3B82F6",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "18px",
+            fontWeight: "bold",
+            cursor: "pointer",
+            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
+            transition: "all 0.2s ease",
           }}
         >
-          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-            Features:
-          </div>
-          <div>• Real-time collaboration</div>
-          <div>• Auto-save every 30 seconds</div>
-          <div>• Canvas persists on refresh</div>
-          <div>• AI assistant at bottom of screen</div>
+          ?
         </div>
-        <div
-          style={{
-            marginTop: "8px",
-            paddingTop: "8px",
-            borderTop: "1px solid #eee",
-          }}
-        >
-          <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-            AI Commands:
+
+        {/* Expandable Panel */}
+        {showHelp && (
+          <div
+            style={{
+              position: "absolute",
+              top: "50px",
+              left: "0",
+              background: "white",
+              borderRadius: "8px",
+              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+              padding: "12px",
+              fontSize: "11px",
+              width: "200px",
+              lineHeight: "1.3",
+              animation: "fadeIn 0.2s ease",
+            }}
+          >
+            <div
+              style={{
+                fontWeight: "bold",
+                marginBottom: "6px",
+                fontSize: "12px",
+              }}
+            >
+              ⌨️ Shortcuts
+            </div>
+            <div>• Space + Drag: Pan</div>
+            <div>• Delete/Backspace: Remove</div>
+            <div>• Arrows: Nudge (+ Shift)</div>
+            <div>• Cmd/Ctrl+D: Duplicate</div>
+            <div>• Shift+Click: Multi-select</div>
+
+            <div
+              style={{
+                marginTop: "8px",
+                paddingTop: "8px",
+                borderTop: "1px solid #eee",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  marginBottom: "4px",
+                  fontSize: "12px",
+                }}
+              >
+                🤖 AI Commands
+              </div>
+              <div style={{ opacity: 0.8 }}>
+                <div>• "Create red circle"</div>
+                <div>• "Move to center"</div>
+                <div>• "Create login form"</div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                marginTop: "8px",
+                paddingTop: "8px",
+                borderTop: "1px solid #eee",
+                fontSize: "10px",
+                opacity: 0.7,
+              }}
+            >
+              Real-time sync • Auto-save
+            </div>
           </div>
-          <div>• "Create a red circle"</div>
-          <div>• "Move circle to center"</div>
-          <div>• "Create a login form"</div>
-          <div>• "Make navigation bar"</div>
-        </div>
+        )}
       </div>
     </div>
   );

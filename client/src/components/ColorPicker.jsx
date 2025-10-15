@@ -3,9 +3,8 @@ import { useState, useEffect } from "react";
 const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
   const [showPicker, setShowPicker] = useState(false);
   const [currentColor, setCurrentColor] = useState("#3B82F6");
-  const [recentColors, setRecentColors] = useState([]);
 
-  // Preset color palette
+  // Simplified color palette - just one palette
   const presetColors = [
     "#3B82F6", // blue
     "#EF4444", // red
@@ -15,19 +14,8 @@ const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
     "#F97316", // orange
     "#EC4899", // pink
     "#6B7280", // gray
+    "#000000", // black
   ];
-
-  // Load recent colors from localStorage
-  useEffect(() => {
-    const saved = localStorage.getItem("collabcanvas-recent-colors");
-    if (saved) {
-      try {
-        setRecentColors(JSON.parse(saved));
-      } catch (error) {
-        console.error("Error loading recent colors:", error);
-      }
-    }
-  }, []);
 
   // Update current color when selection changes
   useEffect(() => {
@@ -39,22 +27,11 @@ const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
     }
   }, [selectedObjects]);
 
-  // Add color to recent colors
-  const addToRecentColors = (color) => {
-    const updated = [color, ...recentColors.filter((c) => c !== color)].slice(
-      0,
-      5
-    );
-    setRecentColors(updated);
-    localStorage.setItem("collabcanvas-recent-colors", JSON.stringify(updated));
-  };
-
   // Handle color change
   const handleColorChange = (color) => {
     if (!fabricCanvas || selectedObjects.length === 0) return;
 
     setCurrentColor(color);
-    addToRecentColors(color);
 
     // Apply color to selected objects
     selectedObjects.forEach((obj) => {
@@ -85,8 +62,8 @@ const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
     <div
       style={{
         position: "absolute",
-        top: "20px",
-        left: "280px",
+        top: "80px", // Moved below toolbar to avoid any overlap
+        left: "20px",
         zIndex: 1000,
         background: "white",
         borderRadius: "8px",
@@ -117,58 +94,28 @@ const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
           }}
         />
 
-        {/* Preset colors */}
+        {/* Color palette */}
         <div style={{ display: "flex", gap: "5px" }}>
           {presetColors.map((color) => (
             <div
               key={color}
               onClick={() => handleColorChange(color)}
               style={{
-                width: "20px",
-                height: "20px",
+                width: "24px",
+                height: "24px",
                 backgroundColor: color,
                 border:
-                  currentColor === color ? "2px solid #000" : "1px solid #ddd",
-                borderRadius: "3px",
+                  currentColor === color ? "3px solid #000" : "1px solid #ddd",
+                borderRadius: "4px",
                 cursor: "pointer",
                 transition: "transform 0.1s",
               }}
               onMouseEnter={(e) => (e.target.style.transform = "scale(1.1)")}
               onMouseLeave={(e) => (e.target.style.transform = "scale(1)")}
+              title={color}
             />
           ))}
         </div>
-
-        {/* Recent colors */}
-        {recentColors.length > 0 && (
-          <>
-            <div
-              style={{
-                width: "1px",
-                height: "20px",
-                backgroundColor: "#ddd",
-                margin: "0 5px",
-              }}
-            />
-            <div style={{ display: "flex", gap: "3px" }}>
-              {recentColors.map((color, index) => (
-                <div
-                  key={`${color}-${index}`}
-                  onClick={() => handleColorChange(color)}
-                  style={{
-                    width: "16px",
-                    height: "16px",
-                    backgroundColor: color,
-                    border: "1px solid #ddd",
-                    borderRadius: "2px",
-                    cursor: "pointer",
-                  }}
-                  title="Recent color"
-                />
-              ))}
-            </div>
-          </>
-        )}
 
         {/* Custom color picker */}
         <input
@@ -176,9 +123,9 @@ const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
           value={currentColor}
           onChange={handleCustomColor}
           style={{
-            width: "30px",
-            height: "30px",
-            border: "none",
+            width: "34px",
+            height: "34px",
+            border: "2px solid #ddd",
             borderRadius: "4px",
             cursor: "pointer",
             padding: "0",

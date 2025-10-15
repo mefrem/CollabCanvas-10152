@@ -8,15 +8,21 @@ const router = express.Router();
 // Get canvas by ID
 router.get("/:canvasId", requireAuth, async (req, res) => {
   try {
+    console.log(
+      `📍 Canvas route hit: ${req.params.canvasId}, User: ${req.user?.username}`
+    );
     const { canvasId } = req.params;
 
+    console.log("🔍 Attempting to find canvas in database...");
     const canvas = await Canvas.findOne({ canvasId });
 
     if (!canvas) {
+      console.log("🆕 Canvas not found, creating new one...");
       // Create new canvas if it doesn't exist
       const ydoc = new Y.Doc();
       const objectsMap = ydoc.getMap("objects");
 
+      console.log("📝 Creating new canvas document...");
       const newCanvas = new Canvas({
         canvasId,
         name: `Canvas ${canvasId}`,
@@ -25,7 +31,9 @@ router.get("/:canvasId", requireAuth, async (req, res) => {
         collaborators: [req.user._id],
       });
 
+      console.log("💾 Saving canvas to database...");
       await newCanvas.save();
+      console.log("✅ Canvas saved successfully");
 
       return res.json({
         canvasId,
@@ -34,6 +42,7 @@ router.get("/:canvasId", requireAuth, async (req, res) => {
       });
     }
 
+    console.log("✅ Found existing canvas, returning data");
     res.json({
       canvasId: canvas.canvasId,
       name: canvas.name,
@@ -41,7 +50,11 @@ router.get("/:canvasId", requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error("Canvas fetch error:", error);
-    res.status(500).json({ message: "Failed to fetch canvas" });
+    console.error("Error stack:", error.stack);
+    res.status(500).json({
+      message: "Failed to fetch canvas",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 
@@ -70,7 +83,11 @@ router.post("/:canvasId/save", requireAuth, async (req, res) => {
     res.json({ message: "Canvas saved successfully" });
   } catch (error) {
     console.error("Canvas save error:", error);
-    res.status(500).json({ message: "Failed to save canvas" });
+    console.error("Error stack:", error.stack);
+    res.status(500).json({
+      message: "Failed to save canvas",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
   }
 });
 

@@ -6,6 +6,8 @@ import {
   deserializeFabricObject,
 } from "../utils/fabricHelpers";
 import { usePersistence } from "./usePersistence";
+import { executePattern } from "../utils/patternGenerator";
+import { executeArrangement, filterObjects } from "../utils/arrangementHelper";
 
 export const useYjs = (canvasId, user, fabricCanvas) => {
   const ydocRef = useRef(null);
@@ -26,9 +28,9 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
 
   // Initialize Yjs document and provider
   useEffect(() => {
-    if (!canvasId || !user || !fabricCanvas) return;
-
-    console.log("Initializing Yjs for canvas:", canvasId);
+    if (!canvasId || !user || !fabricCanvas) {
+      return;
+    }
 
     // Create Yjs document
     const ydoc = new Y.Doc();
@@ -41,16 +43,18 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
       ydoc,
       {
         connect: true,
-        awareness: {
-          user: {
-            id: user.id,
-            username: user.username,
-            color: user.color,
-          },
-        },
       }
     );
     providerRef.current = provider;
+
+    // Set awareness info after provider is created
+    if (provider.awareness) {
+      provider.awareness.setLocalStateField("user", {
+        id: user.id,
+        username: user.username,
+        color: user.color,
+      });
+    }
 
     // Get objects map
     const objectsMap = ydoc.getMap("objects");
@@ -72,12 +76,10 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
 
     // Set up connection status handlers
     provider.on("status", (event) => {
-      console.log("Yjs connection status:", event.status);
       setConnectionStatus(event.status);
     });
 
     provider.on("connection-close", () => {
-      console.log("Yjs connection closed");
       setConnectionStatus("disconnected");
     });
 
@@ -86,11 +88,20 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
       setConnectionStatus("disconnected");
     });
 
+    // Add sync handlers
+    provider.on("sync", (isSynced) => {
+      // Yjs synced
+    });
+
+    // Handle WebSocket errors gracefully
+    provider.ws?.addEventListener("error", (error) => {
+      console.error("Yjs WebSocket error:", error);
+    });
+
     // Set up Yjs map observer
     const handleYjsChanges = (event) => {
       if (isUpdatingFromYjs) return; // Prevent infinite loops
 
-      console.log("Yjs map changed:", event);
       setIsUpdatingFromYjs(true);
 
       event.changes.keys.forEach(async (change, key) => {
@@ -106,9 +117,16 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
               try {
                 const newObject = await deserializeFabricObject(objectData);
                 newObject.uuid = key;
+
+                // Double-check the object is valid before adding
+                if (!newObject || typeof newObject.render !== "function") {
+                  throw new Error(
+                    "Deserialized object is not a valid Fabric object"
+                  );
+                }
+
                 fabricCanvas.add(newObject);
                 fabricCanvas.renderAll();
-                console.log("Added object from Yjs:", key);
               } catch (error) {
                 console.error("Error deserializing object:", error);
               }
@@ -124,7 +142,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
                 fabricObject.set(objectData);
                 fabricObject.setCoords();
                 fabricCanvas.renderAll();
-                console.log("Updated object from Yjs:", key);
               } catch (error) {
                 console.error("Error updating object:", error);
               }
@@ -135,7 +152,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
           if (fabricObject) {
             fabricCanvas.remove(fabricObject);
             fabricCanvas.renderAll();
-            console.log("Removed object from Yjs:", key);
           }
         }
       });
@@ -165,8 +181,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
   const loadCanvasFromDatabase = async () => {
     if (!fabricCanvas) return;
 
-    console.log("Loading canvas from database...");
-
     // First load from database into Yjs
     await loadCanvas();
 
@@ -178,11 +192,21 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
   const loadCanvasFromYjs = async () => {
     if (!objectsMapRef.current || !fabricCanvas) return;
 
-    console.log("Rendering canvas from Yjs...");
+    // Safety check: ensure canvas is fully initialized
+    if (!fabricCanvas.getContext || !fabricCanvas.getContext()) {
+      console.warn("Canvas context not ready, skipping Yjs load");
+      return;
+    }
+
     const objectsMap = objectsMapRef.current;
 
     // Clear current canvas
-    fabricCanvas.clear();
+    try {
+      fabricCanvas.clear();
+    } catch (error) {
+      console.error("Error clearing canvas:", error);
+      return;
+    }
 
     // Load objects from Yjs
     for (const [uuid, objectData] of objectsMap.entries()) {
@@ -196,7 +220,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     }
 
     fabricCanvas.renderAll();
-    console.log("Canvas rendered from Yjs");
   };
 
   // Add object to Yjs
@@ -206,7 +229,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     try {
       const serialized = serializeFabricObject(fabricObject);
       objectsMapRef.current.set(fabricObject.uuid, serialized);
-      console.log("Added object to Yjs:", fabricObject.uuid);
     } catch (error) {
       console.error("Error adding object to Yjs:", error);
     }
@@ -219,7 +241,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     try {
       const serialized = serializeFabricObject(fabricObject);
       objectsMapRef.current.set(fabricObject.uuid, serialized);
-      console.log("Updated object in Yjs:", fabricObject.uuid);
     } catch (error) {
       console.error("Error updating object in Yjs:", error);
     }
@@ -231,7 +252,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
 
     try {
       objectsMapRef.current.delete(uuid);
-      console.log("Removed object from Yjs:", uuid);
     } catch (error) {
       console.error("Error removing object from Yjs:", error);
     }
@@ -256,12 +276,94 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     if (!objectsMapRef.current) return;
 
     try {
-      const { objects, modifications, deletions } = aiResult;
+      const {
+        action,
+        pattern,
+        targetObjects,
+        arrangement,
+        objects,
+        modifications,
+        deletions,
+      } = aiResult;
 
-      // Handle new objects
+      // Handle pattern-based creation
+      if (action === "create_pattern" && pattern) {
+        console.log(
+          `Executing pattern: ${pattern.count} ${pattern.shape}s with ${pattern.distribution} distribution`
+        );
+
+        // Generate objects from pattern
+        const generatedObjects = executePattern(pattern);
+        console.log(
+          `Generated ${generatedObjects.length} objects from pattern`
+        );
+
+        // Add all generated objects to Yjs
+        for (const objData of generatedObjects) {
+          const fabricFormat = {
+            ...objData,
+            left: objData.x,
+            top: objData.y,
+          };
+          delete fabricFormat.x;
+          delete fabricFormat.y;
+
+          objectsMapRef.current.set(objData.id, fabricFormat);
+        }
+
+        return; // Pattern handled, exit early
+      }
+
+      // Handle arrangement actions
+      if (action === "arrange" && arrangement) {
+        console.log(`Executing arrangement: ${arrangement.type}`);
+
+        // Get all current objects from Yjs
+        const allObjects = [];
+        for (const [uuid, objectData] of objectsMapRef.current.entries()) {
+          allObjects.push({ id: uuid, ...objectData });
+        }
+
+        // Filter objects based on target criteria
+        const targetedObjects = filterObjects(
+          allObjects,
+          targetObjects || "all"
+        );
+        console.log(`Arranging ${targetedObjects.length} objects`);
+
+        // Execute arrangement and get modifications
+        const arrangementMods = executeArrangement(
+          targetedObjects,
+          arrangement
+        );
+
+        // Apply modifications to Yjs
+        for (const [uuid, updates] of Object.entries(arrangementMods)) {
+          const existing = objectsMapRef.current.get(uuid);
+          if (existing) {
+            const updated = { ...existing, ...updates };
+            objectsMapRef.current.set(uuid, updated);
+          }
+        }
+
+        return; // Arrangement handled, exit early
+      }
+
+      // Handle traditional new objects
       if (objects && objects.length > 0) {
         for (const objData of objects) {
-          objectsMapRef.current.set(objData.id, objData);
+          // Transform AI format to Fabric.js format
+          const fabricFormat = {
+            ...objData,
+            left: objData.x, // AI uses 'x', Fabric uses 'left'
+            top: objData.y, // AI uses 'y', Fabric uses 'top'
+          };
+
+          // Remove the AI properties that Fabric doesn't need
+          delete fabricFormat.x;
+          delete fabricFormat.y;
+
+          objectsMapRef.current.set(objData.id, fabricFormat);
         }
       }
 
@@ -270,7 +372,23 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
         for (const [uuid, updates] of Object.entries(modifications)) {
           const existing = objectsMapRef.current.get(uuid);
           if (existing) {
-            const updated = { ...existing, ...updates };
+            // Transform AI format to Fabric.js format for modifications
+            const fabricUpdates = { ...updates };
+
+            // Transform position properties
+            if (fabricUpdates.x !== undefined) {
+              fabricUpdates.left = fabricUpdates.x;
+              delete fabricUpdates.x;
+            }
+            if (fabricUpdates.y !== undefined) {
+              fabricUpdates.top = fabricUpdates.y;
+              delete fabricUpdates.y;
+            }
+
+            // All other properties (angle, scaleX, scaleY, width, height, radius, fill, etc.)
+            // are passed through directly - Fabric.js will handle them
+
+            const updated = { ...existing, ...fabricUpdates };
             objectsMapRef.current.set(uuid, updated);
           }
         }
@@ -282,8 +400,6 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
           objectsMapRef.current.delete(uuid);
         });
       }
-
-      console.log("Applied AI command to Yjs");
     } catch (error) {
       console.error("Error applying AI command:", error);
     }

@@ -63,17 +63,27 @@ export const usePersistence = (canvasId, ydoc, user) => {
 
       if (response.ok) {
         const canvasData = await response.json();
+        console.log("✅ Canvas API response received:", canvasData);
 
         if (canvasData.yjsState && canvasData.yjsState.length > 0) {
           // Convert array back to Uint8Array and apply to Yjs doc
           const stateArray = new Uint8Array(canvasData.yjsState);
           Y.applyUpdate(ydoc, stateArray);
-          console.log("Canvas loaded from database");
+          console.log("📄 Canvas loaded from database");
         } else {
-          console.log("No existing canvas state found, starting fresh");
+          console.log("🆕 No existing canvas state found, starting fresh");
         }
       } else {
-        console.error("Failed to load canvas");
+        console.error(
+          `❌ Canvas API failed: ${response.status} ${response.statusText}`
+        );
+        // Try to get error details
+        try {
+          const errorData = await response.json();
+          console.error("Error details:", errorData);
+        } catch (e) {
+          console.error("Could not parse error response");
+        }
       }
     } catch (error) {
       console.error("Load error:", error);

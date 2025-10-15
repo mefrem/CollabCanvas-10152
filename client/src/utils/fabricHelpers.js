@@ -92,21 +92,50 @@ export const createText = (x = 100, y = 100, text = "Double click to edit") => {
 
 // Serialize fabric object for Yjs
 export const serializeFabricObject = (obj) => {
-  const json = obj.toJSON(["uuid"]);
-  return {
-    ...json,
-    uuid: obj.uuid,
-  };
+  try {
+    const json = obj.toJSON(["uuid"]);
+    const serialized = {
+      ...json,
+      uuid: obj.uuid,
+    };
+    return serialized;
+  } catch (error) {
+    console.error("Error serializing object:", error);
+    throw error;
+  }
 };
 
 // Deserialize fabric object from Yjs
 export const deserializeFabricObject = (data) => {
-  return new Promise((resolve) => {
-    fabric.util.enlivenObjects([data], (objects) => {
-      const obj = objects[0];
-      obj.uuid = data.uuid;
-      resolve(obj);
-    });
+  return new Promise((resolve, reject) => {
+    try {
+      // Ensure we have valid data
+      if (!data || !data.type) {
+        throw new Error("Invalid object data: missing type");
+      }
+
+      fabric.util.enlivenObjects([data], (objects) => {
+        try {
+          if (!objects || objects.length === 0) {
+            throw new Error("Failed to enliven objects - no objects returned");
+          }
+
+          const obj = objects[0];
+          if (!obj) {
+            throw new Error("Failed to enliven objects - object is null");
+          }
+
+          obj.uuid = data.uuid;
+          resolve(obj);
+        } catch (error) {
+          console.error("Error in enlivenObjects callback:", error);
+          reject(error);
+        }
+      });
+    } catch (error) {
+      console.error("Error in deserializeFabricObject:", error);
+      reject(error);
+    }
   });
 };
 

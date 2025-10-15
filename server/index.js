@@ -18,6 +18,12 @@ import aiRoutes from "./routes/ai.js";
 // Load environment variables
 dotenv.config();
 
+// Log environment status (for debugging)
+console.log(
+  "🔑 OpenAI API Key:",
+  process.env.OPENAI_API_KEY ? "✅ Loaded" : "❌ Missing"
+);
+
 const app = express();
 const server = createServer(app);
 
