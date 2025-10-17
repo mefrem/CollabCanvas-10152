@@ -32,8 +32,17 @@ export const setupYjsServer = (httpServer) => {
         });
 
     // If attached to HTTP server, handle upgrade requests
+    // Only handle non-Socket.io WebSocket connections
     if (httpServer) {
       httpServer.on("upgrade", (request, socket, head) => {
+        const { pathname } = new URL(request.url, "http://localhost");
+        
+        // Let Socket.io handle its own upgrades
+        if (pathname.startsWith("/socket.io/")) {
+          return; // Socket.io will handle this
+        }
+        
+        // Handle Yjs WebSocket upgrades
         wss.handleUpgrade(request, socket, head, (ws) => {
           wss.emit("connection", ws, request);
         });
