@@ -36,9 +36,10 @@ const server = createServer(app);
 // Setup Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: process.env.NODE_ENV === "production"
-      ? true  // In production, allow same-origin
-      : (process.env.CLIENT_URL || "http://localhost:5173"),
+    origin:
+      process.env.NODE_ENV === "production"
+        ? true // In production, allow same-origin
+        : process.env.CLIENT_URL || "http://localhost:5173",
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -50,9 +51,10 @@ connectDB();
 // Middleware
 app.use(
   cors({
-    origin: process.env.NODE_ENV === "production" 
-      ? true  // In production, allow same-origin (since we serve frontend from same server)
-      : (process.env.CLIENT_URL || "http://localhost:5173"),
+    origin:
+      process.env.NODE_ENV === "production"
+        ? true // In production, allow same-origin (since we serve frontend from same server)
+        : process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
   })
 );
@@ -76,6 +78,7 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      sameSite: process.env.NODE_ENV === "production" ? "lax" : "lax",
     },
   })
 );
@@ -93,10 +96,10 @@ app.use("/api/ai", aiRoutes);
 // In production, serve static files from client build
 if (process.env.NODE_ENV === "production") {
   const clientBuildPath = path.join(__dirname, "../client/dist");
-  
+
   // Serve static files
   app.use(express.static(clientBuildPath));
-  
+
   // Serve index.html for all non-API routes (SPA routing)
   app.get("*", (req, res) => {
     res.sendFile(path.join(clientBuildPath, "index.html"));
@@ -161,7 +164,7 @@ io.on("connection", (socket) => {
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  
+
   // Setup Yjs WebSocket server
   // In production, attach to same HTTP server (same port)
   // In development, uses separate port
