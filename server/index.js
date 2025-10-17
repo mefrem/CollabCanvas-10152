@@ -6,9 +6,15 @@ import session from "express-session";
 import MongoStore from "connect-mongo";
 import passport from "passport";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 import { connectDB } from "./config/db.js";
 import { setupPassport } from "./config/passport.js";
 import { setupYjsServer } from "./config/yjs.js";
+
+// ES modules fix for __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Import routes
 import authRoutes from "./routes/auth.js";
@@ -80,10 +86,23 @@ app.use("/api/auth", authRoutes);
 app.use("/api/canvas", canvasRoutes);
 app.use("/api/ai", aiRoutes);
 
-// Health check
-app.get("/", (req, res) => {
-  res.json({ message: "CollabCanvas Server Running" });
-});
+// In production, serve static files from client build
+if (process.env.NODE_ENV === "production") {
+  const clientBuildPath = path.join(__dirname, "../client/dist");
+  
+  // Serve static files
+  app.use(express.static(clientBuildPath));
+  
+  // Serve index.html for all non-API routes (SPA routing)
+  app.get("*", (req, res) => {
+    res.sendFile(path.join(clientBuildPath, "index.html"));
+  });
+} else {
+  // Development health check
+  app.get("/", (req, res) => {
+    res.json({ message: "CollabCanvas Server Running" });
+  });
+}
 
 // Socket.IO connection handling
 io.on("connection", (socket) => {
