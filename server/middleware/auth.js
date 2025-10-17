@@ -1,4 +1,12 @@
 export const requireAuth = (req, res, next) => {
+  console.log("🔐 Auth check:", {
+    isAuthenticated: req.isAuthenticated(),
+    hasSession: !!req.session,
+    sessionID: req.sessionID,
+    hasUser: !!req.user,
+    cookies: req.headers.cookie ? "✅ Present" : "❌ Missing"
+  });
+  
   if (req.isAuthenticated()) {
     return next();
   }
