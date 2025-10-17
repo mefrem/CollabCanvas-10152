@@ -92,3 +92,6 @@ Thumbs.db
 *.log
 .env*
 !.env.example
+
+# For building
+collabcanvas-prd.tsx
