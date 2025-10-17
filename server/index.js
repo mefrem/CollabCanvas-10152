@@ -158,13 +158,12 @@ io.on("connection", (socket) => {
   });
 });
 
-// Setup Yjs WebSocket server
-setupYjsServer();
-
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(
-    `Yjs WebSocket server running on port ${process.env.YJS_WS_PORT || 1234}`
-  );
+  
+  // Setup Yjs WebSocket server
+  // In production, attach to same HTTP server (same port)
+  // In development, uses separate port
+  setupYjsServer(process.env.NODE_ENV === "production" ? server : null);
 });

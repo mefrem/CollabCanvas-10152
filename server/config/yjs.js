@@ -1,22 +1,44 @@
 import { WebSocketServer } from "ws";
 import { setupWSConnection } from "y-websocket/bin/utils";
 
-export const setupYjsServer = () => {
+export const setupYjsServer = (httpServer) => {
   try {
-    const port = process.env.YJS_WS_PORT || 1234;
+    // In production, attach to the same HTTP server
+    // In development, can use separate port
+    const wss = httpServer 
+      ? new WebSocketServer({ 
+          noServer: true,  // Will handle upgrade manually
+          perMessageDeflate: {
+            zlibDeflateOptions: {
+              threshold: 1024,
+              concurrencyLimit: 10,
+            },
+            zlibInflateOptions: {
+              chunkSize: 32 * 1024,
+            },
+          },
+        })
+      : new WebSocketServer({
+          port: process.env.YJS_WS_PORT || 1234,
+          perMessageDeflate: {
+            zlibDeflateOptions: {
+              threshold: 1024,
+              concurrencyLimit: 10,
+            },
+            zlibInflateOptions: {
+              chunkSize: 32 * 1024,
+            },
+          },
+        });
 
-    const wss = new WebSocketServer({
-      port,
-      perMessageDeflate: {
-        zlibDeflateOptions: {
-          threshold: 1024,
-          concurrencyLimit: 10,
-        },
-        zlibInflateOptions: {
-          chunkSize: 32 * 1024,
-        },
-      },
-    });
+    // If attached to HTTP server, handle upgrade requests
+    if (httpServer) {
+      httpServer.on("upgrade", (request, socket, head) => {
+        wss.handleUpgrade(request, socket, head, (ws) => {
+          wss.emit("connection", ws, request);
+        });
+      });
+    }
 
     wss.on("connection", (ws, req) => {
       try {
@@ -31,7 +53,11 @@ export const setupYjsServer = () => {
       console.error("Yjs WebSocket server error:", error);
     });
 
-    console.log(`✅ Yjs WebSocket server listening on port ${port}`);
+    console.log(
+      httpServer 
+        ? "✅ Yjs WebSocket server attached to main HTTP server"
+        : `✅ Yjs WebSocket server listening on port ${process.env.YJS_WS_PORT || 1234}`
+    );
 
     return wss;
   } catch (error) {

@@ -13,9 +13,12 @@ export const useSocketCursors = (canvasId, user, fabricCanvas) => {
     console.log("Connecting to Socket.io for cursors...");
 
     // Connect to Socket.io server
-    const socket = io("http://localhost:3001", {
+    // In production, connect to same host (no URL needed)
+    // In development, connect to localhost:3001
+    const socketUrl = import.meta.env.PROD ? undefined : "http://localhost:3001";
+    const socket = io(socketUrl, {
       withCredentials: true,
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
     });
     socketRef.current = socket;
 

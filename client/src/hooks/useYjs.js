@@ -37,7 +37,12 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     ydocRef.current = ydoc;
 
     // Create WebSocket provider
-    const wsUrl = import.meta.env.VITE_YJS_WS_URL || "ws://localhost:1234";
+    // In production, use same host with wss protocol
+    // In development, use env var or localhost
+    const wsUrl = import.meta.env.VITE_YJS_WS_URL || 
+      (import.meta.env.PROD 
+        ? `wss://${window.location.host}` 
+        : "ws://localhost:1234");
     const provider = new WebsocketProvider(wsUrl, canvasId, ydoc, {
       connect: true,
     });
