@@ -31,6 +31,13 @@ console.log(
 );
 
 const app = express();
+
+// Trust proxy - required for Render and other platforms behind proxies
+// This ensures secure cookies work correctly
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 const server = createServer(app);
 
 // Setup Socket.IO with CORS
