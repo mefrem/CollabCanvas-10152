@@ -4,8 +4,16 @@ import Toolbar from "./Toolbar";
 import CursorOverlay from "./CursorOverlay";
 import ColorPicker from "./ColorPicker";
 import AICommandInput from "./AICommandInput";
+import LayersPanel from "./LayersPanel";
+import ExportDialog from "./ExportDialog";
+import FramesPanel from "./FramesPanel";
+import TextFormatPanel from "./TextFormatPanel";
+import EditHistoryBadge from "./EditHistoryBadge";
 import { useYjs } from "../hooks/useYjs";
 import { useSocketCursors } from "../hooks/useSocketCursors";
+import { useFrames } from "../hooks/useFrames";
+import { exportAsPNG, exportAsSVG, exportAsJSON } from "../utils/exportHelpers";
+import { renderAllFrames, fitFrameToViewport } from "../utils/frameHelpers";
 import {
   createRectangle,
   createCircle,
@@ -15,7 +23,23 @@ import {
   duplicateObject,
   setupCanvasEvents,
   cleanupCanvasEvents,
+  bringToFront,
+  sendToBack,
+  bringForward,
+  sendBackward,
+  moveToIndex,
 } from "../utils/fabricHelpers";
+import {
+  alignLeft,
+  alignCenter,
+  alignRight,
+  alignTop,
+  alignMiddle,
+  alignBottom,
+  distributeHorizontally,
+  distributeVertically,
+  alignToCanvasCenter,
+} from "../utils/alignmentHelpers";
 
 const Canvas = ({ user, onLogout }) => {
   const canvasRef = useRef(null);
@@ -26,6 +50,14 @@ const Canvas = ({ user, onLogout }) => {
   const [isAILoading, setIsAILoading] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showUsersDropdown, setShowUsersDropdown] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(50); // Track zoom percentage (50% = 0.5 zoom)
+  const [selectedTextObject, setSelectedTextObject] = useState(null);
+  const [textFormatPanelPosition, setTextFormatPanelPosition] = useState({
+    x: 0,
+    y: 0,
+  });
+  const [clipboard, setClipboard] = useState(null); // For copy/paste
 
   // Fixed canvas ID for now - in production this would be dynamic
   const canvasId = "default-canvas";
@@ -101,6 +133,58 @@ const Canvas = ({ user, onLogout }) => {
     canvasReady ? fabricCanvasRef.current : null
   );
 
+  // Initialize frames management
+  const {
+    frames,
+    activeFrameId,
+    addFrame,
+    updateFrame,
+    deleteFrame,
+    duplicateFrame,
+    selectFrame,
+    getActiveFrame,
+  } = useFrames();
+
+  // Frame handlers
+  const handleFrameMove = (frameId, newPosition) => {
+    updateFrame(frameId, newPosition);
+  };
+
+  const handleAddFrame = (preset) => {
+    const newFrame = addFrame(preset);
+    // Auto-fit the newly created frame to viewport after a brief delay
+    // to ensure it's rendered
+    setTimeout(() => {
+      if (newFrame && fabricCanvasRef.current) {
+        const zoom = fitFrameToViewport(fabricCanvasRef.current, newFrame);
+        setZoomLevel(Math.round(zoom * 100));
+      }
+    }, 100);
+    return newFrame;
+  };
+
+  const handleSelectFrame = (frameId) => {
+    selectFrame(frameId);
+    // Fit frame to viewport when selected
+    const frame = frames.find((f) => f.id === frameId);
+    if (frame && fabricCanvasRef.current) {
+      const zoom = fitFrameToViewport(fabricCanvasRef.current, frame);
+      setZoomLevel(Math.round(zoom * 100));
+    }
+  };
+
+  // Render frames whenever they change or active frame changes
+  useEffect(() => {
+    if (fabricCanvasRef.current && canvasReady) {
+      renderAllFrames(
+        fabricCanvasRef.current,
+        frames,
+        activeFrameId,
+        handleFrameMove
+      );
+    }
+  }, [frames, activeFrameId, canvasReady]);
+
   // Initialize Fabric.js canvas
   useEffect(() => {
     if (!canvasRef.current) {
@@ -121,6 +205,10 @@ const Canvas = ({ user, onLogout }) => {
       });
 
       fabricCanvasRef.current = canvas;
+
+      // Set initial zoom to 50% (0.5) so frames fit better
+      canvas.setZoom(0.5);
+      setZoomLevel(50);
 
       // Mark canvas as ready after successful initialization
       setCanvasReady(true);
@@ -200,6 +288,22 @@ const Canvas = ({ user, onLogout }) => {
         handleDuplicate();
       }
 
+      // Copy (Cmd/Ctrl + C)
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key === "c" &&
+        activeObjects.length > 0
+      ) {
+        e.preventDefault();
+        handleCopy();
+      }
+
+      // Paste (Cmd/Ctrl + V)
+      if ((e.metaKey || e.ctrlKey) && e.key === "v") {
+        e.preventDefault();
+        handlePaste();
+      }
+
       // Undo (Cmd/Ctrl + Z)
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -210,6 +314,67 @@ const Canvas = ({ user, onLogout }) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && e.shiftKey) {
         e.preventDefault();
         handleRedo();
+      }
+
+      // Alignment shortcuts
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && activeObjects.length > 0) {
+        switch (e.key.toLowerCase()) {
+          case "l":
+            e.preventDefault();
+            handleAlignLeft();
+            break;
+          case "h":
+            e.preventDefault();
+            handleAlignCenter();
+            break;
+          case "r":
+            e.preventDefault();
+            handleAlignRight();
+            break;
+          case "t":
+            e.preventDefault();
+            handleAlignTop();
+            break;
+          case "m":
+            e.preventDefault();
+            handleAlignMiddle();
+            break;
+          case "b":
+            e.preventDefault();
+            handleAlignBottom();
+            break;
+          case "c":
+            e.preventDefault();
+            handleAlignToCenter();
+            break;
+          default:
+            break;
+        }
+      }
+
+      // Z-index shortcuts
+      if ((e.metaKey || e.ctrlKey) && activeObjects.length === 1) {
+        if (e.key === "]") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            handleBringForward();
+          } else {
+            handleBringToFront();
+          }
+        } else if (e.key === "[") {
+          e.preventDefault();
+          if (e.shiftKey) {
+            handleSendBackward();
+          } else {
+            handleSendToBack();
+          }
+        }
+      }
+
+      // Export shortcut (Cmd/Ctrl + E)
+      if ((e.metaKey || e.ctrlKey) && e.key === "e") {
+        e.preventDefault();
+        setShowExportDialog(true);
       }
     };
 
@@ -309,6 +474,7 @@ const Canvas = ({ user, onLogout }) => {
       if (zoom < 0.01) zoom = 0.01;
 
       canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+      setZoomLevel(Math.round(zoom * 100)); // Update zoom level display
       opt.e.preventDefault();
       opt.e.stopPropagation();
     };
@@ -402,15 +568,58 @@ const Canvas = ({ user, onLogout }) => {
   );
 
   const handleSelectionCreated = useCallback((e) => {
-    setSelectedObjects(e.selected || []);
+    const selected = e.selected || [];
+    setSelectedObjects(selected);
+
+    // Check if single text object is selected
+    if (
+      selected.length === 1 &&
+      (selected[0].type === "i-text" ||
+        selected[0].type === "text" ||
+        selected[0].type === "textbox")
+    ) {
+      const textObj = selected[0];
+      setSelectedTextObject(textObj);
+
+      // Calculate position near the text object
+      const boundingRect = textObj.getBoundingRect();
+      setTextFormatPanelPosition({
+        x: boundingRect.left + boundingRect.width + 20,
+        y: boundingRect.top,
+      });
+    } else {
+      setSelectedTextObject(null);
+    }
   }, []);
 
   const handleSelectionUpdated = useCallback((e) => {
-    setSelectedObjects(e.selected || []);
+    const selected = e.selected || [];
+    setSelectedObjects(selected);
+
+    // Check if single text object is selected
+    if (
+      selected.length === 1 &&
+      (selected[0].type === "i-text" ||
+        selected[0].type === "text" ||
+        selected[0].type === "textbox")
+    ) {
+      const textObj = selected[0];
+      setSelectedTextObject(textObj);
+
+      // Calculate position near the text object
+      const boundingRect = textObj.getBoundingRect();
+      setTextFormatPanelPosition({
+        x: boundingRect.left + boundingRect.width + 20,
+        y: boundingRect.top,
+      });
+    } else {
+      setSelectedTextObject(null);
+    }
   }, []);
 
   const handleSelectionCleared = useCallback(() => {
     setSelectedObjects([]);
+    setSelectedTextObject(null);
   }, []);
 
   // Tool handlers
@@ -437,10 +646,49 @@ const Canvas = ({ user, onLogout }) => {
 
     try {
       // Get current canvas state
-      const canvasState = getCanvasState();
+      const fullCanvasState = getCanvasState();
+
+      // Optimize canvas state to reduce token usage
+      let canvasState;
+
+      // Check if command is purely creative (doesn't need canvas context)
+      const isCreativeCommand = /^(create|add|make|draw|generate)/i.test(
+        command.trim()
+      );
+      const hasNoObjects =
+        !fullCanvasState.objects || fullCanvasState.objects.length === 0;
+
+      if (isCreativeCommand && hasNoObjects) {
+        // For creative commands on empty canvas, send minimal state
+        canvasState = { objects: [] };
+      } else if (
+        fullCanvasState.objects &&
+        fullCanvasState.objects.length > 20
+      ) {
+        // For large canvases, send only essential info about recent objects
+        const recentObjects = fullCanvasState.objects.slice(-10).map((obj) => ({
+          type: obj.type,
+          left: obj.left,
+          top: obj.top,
+          width: obj.width,
+          height: obj.height,
+          radius: obj.radius,
+          fill: obj.fill,
+          text: obj.text,
+        }));
+
+        canvasState = {
+          objects: recentObjects,
+          objectCount: fullCanvasState.objects.length,
+          summary: `Canvas has ${fullCanvasState.objects.length} total objects. Showing essential info for last 10 objects only.`,
+        };
+      } else {
+        // For smaller canvases, send full state
+        canvasState = fullCanvasState;
+      }
 
       console.log("Executing AI command:", command);
-      console.log("Canvas state:", canvasState);
+      console.log("Canvas state (optimized):", canvasState);
 
       // Send command to server
       const response = await fetch("/api/ai/command", {
@@ -505,6 +753,58 @@ const Canvas = ({ user, onLogout }) => {
     }
   };
 
+  const handleCopy = () => {
+    const canvas = fabricCanvasRef.current;
+    const activeObjects = canvas.getActiveObjects();
+
+    if (activeObjects.length > 0) {
+      // Store the objects in clipboard
+      setClipboard(activeObjects.map((obj) => obj.toObject(["uuid"])));
+      console.log("Copied", activeObjects.length, "object(s)");
+    }
+  };
+
+  const handlePaste = () => {
+    const canvas = fabricCanvasRef.current;
+
+    if (clipboard && clipboard.length > 0) {
+      const pastedObjects = [];
+
+      clipboard.forEach((objData) => {
+        // Create new object from clipboard data
+        fabric.util.enlivenObjects([objData], (objects) => {
+          objects.forEach((obj) => {
+            // Offset position slightly
+            obj.set({
+              left: obj.left + 20,
+              top: obj.top + 20,
+              uuid: crypto.randomUUID(), // Generate new UUID
+            });
+
+            canvas.add(obj);
+            pastedObjects.push(obj);
+
+            // The object:added event will handle adding to Yjs
+          });
+
+          // Select the pasted objects
+          if (pastedObjects.length === 1) {
+            canvas.setActiveObject(pastedObjects[0]);
+          } else if (pastedObjects.length > 1) {
+            const selection = new fabric.ActiveSelection(pastedObjects, {
+              canvas,
+            });
+            canvas.setActiveObject(selection);
+          }
+
+          canvas.renderAll();
+        });
+      });
+
+      console.log("Pasted", clipboard.length, "object(s)");
+    }
+  };
+
   const handleUndo = () => {
     undo();
   };
@@ -535,6 +835,7 @@ const Canvas = ({ user, onLogout }) => {
     const objects = canvas.getObjects();
     if (objects.length === 0) {
       canvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+      setZoomLevel(100);
       canvas.renderAll();
       return;
     }
@@ -564,7 +865,292 @@ const Canvas = ({ user, onLogout }) => {
     const deltaY = centerY - objectCenterY * scale;
 
     canvas.setViewportTransform([scale, 0, 0, scale, deltaX, deltaY]);
+    setZoomLevel(Math.round(scale * 100)); // Update zoom level display
     canvas.renderAll();
+  };
+
+  // Alignment handlers
+  const handleAlignLeft = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignLeft(activeObjects);
+      canvas.renderAll();
+      // Sync all modified objects to Yjs in one batch
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      // Force save to create proper undo point
+      saveNow();
+    }
+  };
+
+  const handleAlignCenter = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignCenter(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleAlignRight = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignRight(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleAlignTop = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignTop(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleAlignMiddle = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignMiddle(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleAlignBottom = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignBottom(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleDistributeHorizontally = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length >= 2) {
+      distributeHorizontally(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleDistributeVertically = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length >= 2) {
+      distributeVertically(activeObjects);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  const handleAlignToCenter = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length > 0) {
+      alignToCanvasCenter(activeObjects, canvas);
+      canvas.renderAll();
+      activeObjects.forEach((obj) => {
+        if (obj.uuid && !isUpdatingFromYjs) {
+          updateObjectInYjs(obj);
+        }
+      });
+      saveNow();
+    }
+  };
+
+  // Z-Index handlers
+  const handleBringToFront = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (activeObject) {
+      bringToFront(activeObject, canvas);
+      handleObjectModified({ target: activeObject });
+    }
+  };
+
+  const handleSendToBack = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (activeObject) {
+      sendToBack(activeObject, canvas);
+      handleObjectModified({ target: activeObject });
+    }
+  };
+
+  const handleBringForward = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (activeObject) {
+      bringForward(activeObject, canvas);
+      handleObjectModified({ target: activeObject });
+    }
+  };
+
+  const handleSendBackward = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (activeObject) {
+      sendBackward(activeObject, canvas);
+      handleObjectModified({ target: activeObject });
+    }
+  };
+
+  // Layer Panel handlers
+  const handleSelectObject = (objectId) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const obj = canvas.getObjects().find((o) => o.uuid === objectId);
+    if (obj) {
+      canvas.setActiveObject(obj);
+      canvas.renderAll();
+    }
+  };
+
+  const handleDeleteObject = (objectId) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const obj = canvas.getObjects().find((o) => o.uuid === objectId);
+    if (obj) {
+      canvas.remove(obj);
+      canvas.renderAll();
+    }
+  };
+
+  const handleToggleVisibility = (objectId, visible) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const obj = canvas.getObjects().find((o) => o.uuid === objectId);
+    if (obj) {
+      obj.set({ visible });
+      canvas.renderAll();
+      // Sync visibility change to Yjs
+      updateObjectInYjs(obj);
+    }
+  };
+
+  const handleToggleLock = (objectId, locked) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const obj = canvas.getObjects().find((o) => o.uuid === objectId);
+    if (obj) {
+      obj.set({
+        selectable: !locked,
+        evented: !locked,
+      });
+      canvas.renderAll();
+      // Sync lock state to Yjs
+      updateObjectInYjs(obj);
+    }
+  };
+
+  const handleRenameObject = (objectId, newName) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const obj = canvas.getObjects().find((o) => o.uuid === objectId);
+    if (obj) {
+      obj.name = newName;
+      canvas.renderAll();
+      // Sync name change to Yjs
+      updateObjectInYjs(obj);
+    }
+  };
+
+  const handleReorderLayers = (objectId, newZIndex) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const obj = canvas.getObjects().find((o) => o.uuid === objectId);
+    if (obj) {
+      moveToIndex(obj, newZIndex, canvas);
+      // Sync z-index change to Yjs
+      handleObjectModified({ target: obj });
+    }
+  };
+
+  // Export handler
+  const handleExport = ({ format, quality, selectionOnly, fileName }) => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    try {
+      if (format === "png") {
+        exportAsPNG(canvas, fileName, { quality, selectionOnly });
+      } else if (format === "svg") {
+        exportAsSVG(canvas, fileName, selectionOnly);
+      } else if (format === "json") {
+        exportAsJSON(canvas, fileName);
+      }
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert(`Export failed: ${error.message}`);
+    }
   };
 
   return (
@@ -721,7 +1307,35 @@ const Canvas = ({ user, onLogout }) => {
         canUndo={canUndo}
         canRedo={canRedo}
         onDelete={handleDelete}
+        onDuplicate={handleDuplicate}
         hasSelection={selectedObjects.length > 0}
+        selectedObjects={selectedObjects}
+        onAlignLeft={handleAlignLeft}
+        onAlignCenter={handleAlignCenter}
+        onAlignRight={handleAlignRight}
+        onAlignTop={handleAlignTop}
+        onAlignMiddle={handleAlignMiddle}
+        onAlignBottom={handleAlignBottom}
+        onDistributeHorizontally={handleDistributeHorizontally}
+        onDistributeVertically={handleDistributeVertically}
+        onAlignToCenter={handleAlignToCenter}
+        onBringToFront={handleBringToFront}
+        onSendToBack={handleSendToBack}
+        onBringForward={handleBringForward}
+        onSendBackward={handleSendBackward}
+        onExport={() => setShowExportDialog(true)}
+      />
+
+      {/* Layers Panel */}
+      <LayersPanel
+        fabricCanvas={fabricCanvasRef.current}
+        selectedObjects={selectedObjects}
+        onSelectObject={handleSelectObject}
+        onDeleteObject={handleDeleteObject}
+        onToggleVisibility={handleToggleVisibility}
+        onToggleLock={handleToggleLock}
+        onRenameObject={handleRenameObject}
+        onReorderLayers={handleReorderLayers}
       />
 
       {/* Color Picker */}
@@ -747,11 +1361,28 @@ const Canvas = ({ user, onLogout }) => {
           gap: "5px",
         }}
       >
+        {/* Zoom Level Display */}
+        <div
+          style={{
+            padding: "5px 10px",
+            textAlign: "center",
+            fontSize: "14px",
+            fontWeight: "600",
+            color: "#3b82f6",
+            borderBottom: "1px solid #e5e7eb",
+            paddingBottom: "8px",
+          }}
+        >
+          {zoomLevel}%
+        </div>
+
         <button
           onClick={() => {
             const canvas = fabricCanvasRef.current;
             const zoom = canvas.getZoom();
-            canvas.setZoom(Math.min(zoom * 1.2, 3));
+            const newZoom = Math.min(zoom * 1.2, 3);
+            canvas.setZoom(newZoom);
+            setZoomLevel(Math.round(newZoom * 100));
           }}
           style={{
             padding: "5px 10px",
@@ -768,7 +1399,9 @@ const Canvas = ({ user, onLogout }) => {
           onClick={() => {
             const canvas = fabricCanvasRef.current;
             const zoom = canvas.getZoom();
-            canvas.setZoom(Math.max(zoom * 0.8, 0.1));
+            const newZoom = Math.max(zoom * 0.8, 0.1);
+            canvas.setZoom(newZoom);
+            setZoomLevel(Math.round(newZoom * 100));
           }}
           style={{
             padding: "5px 10px",
@@ -877,6 +1510,37 @@ const Canvas = ({ user, onLogout }) => {
         isLoading={isAILoading}
       />
 
+      {/* Export Dialog */}
+      <ExportDialog
+        isOpen={showExportDialog}
+        onClose={() => setShowExportDialog(false)}
+        onExport={handleExport}
+        hasSelection={selectedObjects.length > 0}
+      />
+
+      {/* Frames Panel */}
+      <FramesPanel
+        frames={frames}
+        activeFrameId={activeFrameId}
+        onAddFrame={handleAddFrame}
+        onUpdateFrame={updateFrame}
+        onDeleteFrame={deleteFrame}
+        onDuplicateFrame={duplicateFrame}
+        onSelectFrame={handleSelectFrame}
+      />
+
+      {/* Text Format Panel */}
+      {selectedTextObject && (
+        <TextFormatPanel
+          textObject={selectedTextObject}
+          fabricCanvas={fabricCanvasRef.current}
+          position={textFormatPanelPosition}
+        />
+      )}
+
+      {/* Edit History Badge */}
+      <EditHistoryBadge selectedObjects={selectedObjects} />
+
       {/* Canvas */}
       <div
         style={{
@@ -956,7 +1620,7 @@ const Canvas = ({ user, onLogout }) => {
         style={{
           position: "absolute",
           top: "50%",
-          left: "20px",
+          right: "20px",
           transform: "translateY(-50%)",
           zIndex: 1000,
         }}
@@ -991,15 +1655,17 @@ const Canvas = ({ user, onLogout }) => {
             style={{
               position: "absolute",
               top: "50px",
-              left: "0",
+              right: "0",
               background: "white",
               borderRadius: "8px",
               boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
               padding: "12px",
               fontSize: "11px",
-              width: "200px",
+              width: "220px",
               lineHeight: "1.3",
               animation: "fadeIn 0.2s ease",
+              maxHeight: "500px",
+              overflowY: "auto",
             }}
           >
             <div
@@ -1015,7 +1681,32 @@ const Canvas = ({ user, onLogout }) => {
             <div>• Delete/Backspace: Remove</div>
             <div>• Arrows: Nudge (+ Shift)</div>
             <div>• Cmd/Ctrl+D: Duplicate</div>
+            <div>• Cmd/Ctrl+E: Export</div>
+            <div>• Cmd/Ctrl+Z: Undo</div>
             <div>• Shift+Click: Multi-select</div>
+
+            <div
+              style={{
+                marginTop: "8px",
+                paddingTop: "8px",
+                borderTop: "1px solid #eee",
+              }}
+            >
+              <div
+                style={{
+                  fontWeight: "bold",
+                  marginBottom: "4px",
+                  fontSize: "12px",
+                }}
+              >
+                🎨 Design Tools
+              </div>
+              <div style={{ opacity: 0.8 }}>
+                <div>• Layers: Manage objects</div>
+                <div>• Frames: Device artboards</div>
+                <div>• Export: PNG/SVG/JSON</div>
+              </div>
+            </div>
 
             <div
               style={{
@@ -1049,7 +1740,7 @@ const Canvas = ({ user, onLogout }) => {
                 opacity: 0.7,
               }}
             >
-              Real-time sync • Auto-save
+              Real-time sync • Auto-save • Production-ready
             </div>
           </div>
         )}

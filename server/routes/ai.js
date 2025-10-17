@@ -40,184 +40,45 @@ router.post("/command", requireAuth, async (req, res) => {
       });
     }
 
-    // Enhanced system prompt for GPT-4o's superior reasoning
-    const systemPrompt = `You are a precise canvas design assistant. Follow instructions EXACTLY as given.
+    // Optimized system prompt to reduce tokens
+    const systemPrompt = `You are a canvas design assistant. Create ONLY what the user asks for.
 
-CRITICAL RULES:
-1. ONLY create what the user explicitly asks for - nothing extra
-2. If the user says "create a red circle", create ONLY a red circle
-3. Do NOT add additional elements "for balance" or "for design"
-4. If user says "in the middle" or "center", use coordinates (400, 300)
-5. Follow the EXACT color, shape, and quantity specified
-6. For modifications, ANALYZE the canvas state carefully to find the right object
-7. Match objects by description: color, shape type, text content, or position
+Canvas: 800x600px. Center: (400, 300). Top-left: (0, 0).
 
-Canvas specifications:
-- Dimensions: 800x600 pixels
-- Center point: (400, 300) - use this for "middle", "center", "centered"
-- Coordinate system: Top-left is (0, 0)
+For 10+ objects use PATTERN mode:
+{"action":"create_pattern","pattern":{"shape":"circle|rect|triangle|random","count":number,"distribution":"random|grid","colorScheme":"rainbow|random|#hex","radiusRange":[min,max],"sizeRange":[min,max]},"explanation":"str"}
 
-Position keywords:
-- "middle", "center", "centered" → x: 400, y: 300 (adjust for object size)
-- "top left" → x: 100, y: 100
-- "top right" → x: 700, y: 100
-- "bottom left" → x: 100, y: 500
-- "bottom right" → x: 700, y: 500
+For 1-9 objects use:
+{"action":"create|modify|delete","objects":[{"id":"uuid","type":"rect|circle|triangle|text","x":num,"y":num,"width":num,"height":num,"radius":num,"fill":"#hex","text":"str","fontSize":num}],"explanation":"str"}
 
-For complex multi-element commands ONLY (forms, navigation bars):
-- Plan the layout carefully
-- Ensure consistent spacing
-- Use professional design principles
+Always respond with valid JSON.`;
 
-Always respond with valid JSON matching the exact schema provided.`;
+    const userPrompt = `Canvas: ${JSON.stringify(canvasState || [])}
 
-    const userPrompt = `Current canvas state:
-${JSON.stringify(canvasState || [], null, 2)}
+Command: "${command}"`;
 
-User command: "${command}"
+    // Smart model selection: Use gpt-4o for complex layouts, gpt-4o-mini for simple shapes
+    const complexPatterns =
+      /\b(form|login|signup|register|navigation|nav|menu|layout|dashboard|card|button|input|modal|dialog|component)\b/i;
+    const isComplexCommand = complexPatterns.test(command);
+    const model = isComplexCommand ? "gpt-4o" : "gpt-4o-mini";
 
-IMPORTANT: Create ONLY what the user asked for. Do not add extra objects.
+    console.log(`🤖 Using model: ${model} for command: "${command}"`);
 
-For large batch requests (10+ objects), use PATTERN mode for efficiency:
-Instead of generating 100 individual objects, generate a pattern that will be executed client-side.
-
-Example: "Create 100 circles" should use pattern mode:
-{
-  "action": "create_pattern",
-  "pattern": {
-    "shape": "circle",
-    "count": 100,
-    "distribution": "random",
-    "colorScheme": "rainbow",
-    "radiusRange": [30, 50]
-  }
-}
-
-For single/few objects (1-9), use standard object creation:
-{
-  "action": "create",
-  "objects": [...]
-}
-
-Respond with JSON following this exact schema:
-
-For individual objects (1-9 items):
-{
-  "action": "create" | "modify" | "arrange" | "delete",
-  "objects": [
-    {
-      "id": "uuid-v4-string",
-      "type": "rect" | "circle" | "triangle" | "text",
-      "x": number,
-      "y": number,
-      "width": number (required for rect/triangle),
-      "height": number (required for rect/triangle),
-      "radius": number (required for circles),
-      "fill": "#hexcolor",
-      "text": "content" (required for text type),
-      "fontSize": number (for text, 12-24 range),
-      "stroke": "#hexcolor" (optional border color),
-      "strokeWidth": number (optional, 1-5),
-      "angle": number (rotation in degrees, 0-360, optional),
-      "scaleX": number (horizontal scale, 1.0 = 100%, optional),
-      "scaleY": number (vertical scale, 1.0 = 100%, optional)
-    }
-  ],
-  "modifications": {
-    "existing-object-uuid": {
-      "x": 100,
-      "y": 200,
-      "fill": "#ff0000",
-      "angle": 45,
-      "scaleX": 1.5,
-      // any properties to update
-    }
-  },
-  "deletions": ["uuid-to-delete"],
-  "explanation": "Friendly description"
-}
-
-IMPORTANT for modifications:
-- Analyze the current canvas state to find objects by description
-- Match objects by: color (fill), type, position, or text content
-- For "the blue rectangle", find object with type="rect" and fill close to blue
-- For "twice as big", multiply current width/height or radius by 2
-- For "rotate 45 degrees", add or update angle property
-
-Examples of modification commands:
-- "Move the red circle to the center" → Find circle with red fill, set x:400, y:300
-- "Rotate the text 45 degrees" → Find text object, set angle: 45
-- "Make the blue rectangle twice as big" → Find blue rect, set scaleX: 2, scaleY: 2
-- "Resize the circle to radius 100" → Find circle, set radius: 100
-
-For batch operations (10+ items):
-{
-  "action": "create_pattern",
-  "pattern": {
-    "shape": "circle" | "rect" | "triangle" | "random",
-    "count": number (how many to create),
-    "distribution": "random" | "grid" | "circle" | "line" | "scatter",
-    "colorScheme": "rainbow" | "gradient" | "monochrome" | "random" | "#hexcolor",
-    "radiusRange": [min, max] (for circles),
-    "sizeRange": [min, max] (for rects/triangles - width/height),
-    "area": {"x": number, "y": number, "width": number, "height": number} (optional, defaults to full canvas)
-  },
-  "explanation": "Friendly description"
-}
-
-Note: shape can be "random" to randomly mix circles, rectangles, and triangles
-
-For arrangement/layout operations:
-{
-  "action": "arrange",
-  "targetObjects": "all" | "selected" | ["uuid1", "uuid2"] | {type: "circle"} | {fill: "#ff0000"},
-  "arrangement": {
-    "type": "row" | "column" | "grid" | "circle" | "distribute_horizontal" | "distribute_vertical",
-    "spacing": number | "even",
-    "align": "start" | "center" | "end",
-    "position": {"x": number, "y": number} (optional, starting point)
-  },
-  "explanation": "Friendly description"
-}
-
-Examples of arrangement commands:
-- "Arrange all circles in a horizontal row" → action: "arrange", targetObjects: {type: "circle"}, arrangement: {type: "row", spacing: "even"}
-- "Space these elements evenly" → action: "arrange", targetObjects: "selected", arrangement: {type: "distribute_horizontal", spacing: "even"}
-- "Create a 3x3 grid with all rectangles" → action: "arrange", targetObjects: {type: "rect"}, arrangement: {type: "grid", spacing: 20}
-
-Creation guidelines:
-- Rectangles: 60-200px width/height typically
-- Circles: 30-100px radius typically
-- Triangles: 50-150px dimensions
-- Text: 16-20px for body, 24-32px for headings
-- For single objects: Position EXACTLY as requested (center = 400, 300)
-- Colors: Use the EXACT color specified by the user
-
-For "create login form" specifically:
-- Title text at top (24px, bold)
-- Username label + input field (rectangle) with 10px gap
-- Password label + input field with 10px gap  
-- Submit button (rectangle with contrasting color) below inputs
-- Center-align all elements, use consistent widths
-- Total height: ~250-300px
-
-For "create navigation bar":
-- Container rectangle as background (full width or centered)
-- Text items evenly spaced horizontally
-- Use 18-20px font size
-- Items should be clickable-looking with good contrast`;
-
-    // Call OpenAI GPT-4o
+    // Call OpenAI with appropriate model
+    const startTime = Date.now();
     const response = await client.chat.completions.create({
-      model: "gpt-4o",
+      model: model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       response_format: { type: "json_object" },
-      temperature: 0.3, // Lower temperature for more precise, less creative responses
-      max_tokens: 16000, // Increased for large batch operations (e.g., 100 objects)
+      temperature: 0.2,
+      max_tokens: isComplexCommand ? 2000 : 800, // More tokens for complex commands
     });
+    const elapsedTime = Date.now() - startTime;
+    console.log(`⚡ AI response time: ${elapsedTime}ms (${model})`);
 
     // Check if response was truncated due to token limits
     if (response.choices[0].finish_reason === "length") {

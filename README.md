@@ -25,10 +25,15 @@ CollabCanvas is a production-ready collaborative design tool that combines real-
 
 ### Advanced Features
 
+- **Layers Panel** with drag-to-reorder, visibility toggle, lock controls
+- **Alignment Tools** (9 tools) - align left/center/right, top/middle/bottom, distribute
+- **Z-Index Management** - bring to front, send to back with keyboard shortcuts
 - **Color picker** with 8 presets + custom colors + recent colors
 - **Undo/Redo** with Yjs UndoManager (Cmd+Z / Cmd+Shift+Z)
 - **Object duplication** (Cmd+D)
 - **Arrow key nudging** (10px normal, 50px with Shift)
+- **Toast notifications** for user feedback
+- **Smooth animations** and professional design system
 
 ### AI Canvas Agent
 
@@ -192,12 +197,34 @@ The AI uses GPT-4o's advanced spatial reasoning to create professional, well-ali
 
 ### Keyboard Shortcuts
 
+**Object Operations:**
+
 - **Delete**: Remove selected objects
-- **Cmd/Ctrl + Z**: Undo
-- **Cmd/Ctrl + Shift + Z**: Redo
 - **Cmd/Ctrl + D**: Duplicate objects
 - **Arrow Keys**: Nudge objects 10px
 - **Shift + Arrow Keys**: Nudge objects 50px
+
+**History:**
+
+- **Cmd/Ctrl + Z**: Undo
+- **Cmd/Ctrl + Shift + Z**: Redo
+
+**Alignment:**
+
+- **Cmd/Ctrl + Shift + L**: Align Left
+- **Cmd/Ctrl + Shift + H**: Align Center (Horizontal)
+- **Cmd/Ctrl + Shift + R**: Align Right
+- **Cmd/Ctrl + Shift + T**: Align Top
+- **Cmd/Ctrl + Shift + M**: Align Middle (Vertical)
+- **Cmd/Ctrl + Shift + B**: Align Bottom
+- **Cmd/Ctrl + Shift + C**: Center on Canvas
+
+**Z-Index:**
+
+- **Cmd/Ctrl + ]**: Bring to Front
+- **Cmd/Ctrl + [**: Send to Back
+- **Cmd/Ctrl + Shift + ]**: Bring Forward
+- **Cmd/Ctrl + Shift + [**: Send Backward
 
 ### Tools
 

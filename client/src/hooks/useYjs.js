@@ -37,14 +37,10 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     ydocRef.current = ydoc;
 
     // Create WebSocket provider
-    const provider = new WebsocketProvider(
-      "ws://localhost:1234",
-      canvasId,
-      ydoc,
-      {
-        connect: true,
-      }
-    );
+    const wsUrl = import.meta.env.VITE_YJS_WS_URL || "ws://localhost:1234";
+    const provider = new WebsocketProvider(wsUrl, canvasId, ydoc, {
+      connect: true,
+    });
     providerRef.current = provider;
 
     // Set awareness info after provider is created
@@ -227,7 +223,14 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     if (!objectsMapRef.current || isUpdatingFromYjs) return;
 
     try {
+      // Add edit metadata to fabric object
+      fabricObject.lastEditedBy = user?.username || "Unknown";
+      fabricObject.lastEditedAt = new Date().toISOString();
+
       const serialized = serializeFabricObject(fabricObject);
+      // Ensure metadata is in serialized form
+      serialized.lastEditedBy = fabricObject.lastEditedBy;
+      serialized.lastEditedAt = fabricObject.lastEditedAt;
       objectsMapRef.current.set(fabricObject.uuid, serialized);
     } catch (error) {
       console.error("Error adding object to Yjs:", error);
@@ -239,7 +242,14 @@ export const useYjs = (canvasId, user, fabricCanvas) => {
     if (!objectsMapRef.current || isUpdatingFromYjs) return;
 
     try {
+      // Add edit metadata to fabric object
+      fabricObject.lastEditedBy = user?.username || "Unknown";
+      fabricObject.lastEditedAt = new Date().toISOString();
+
       const serialized = serializeFabricObject(fabricObject);
+      // Ensure metadata is in serialized form
+      serialized.lastEditedBy = fabricObject.lastEditedBy;
+      serialized.lastEditedAt = fabricObject.lastEditedAt;
       objectsMapRef.current.set(fabricObject.uuid, serialized);
     } catch (error) {
       console.error("Error updating object in Yjs:", error);

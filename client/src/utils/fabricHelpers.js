@@ -207,3 +207,50 @@ export const cleanupCanvasEvents = (canvas) => {
   canvas.off("selection:updated");
   canvas.off("selection:cleared");
 };
+
+// Z-Index Management Functions
+
+/**
+ * Bring object to front (top of z-index)
+ */
+export const bringToFront = (object, canvas) => {
+  if (!object || !canvas) return;
+  canvas.bringToFront(object);
+  canvas.renderAll();
+};
+
+/**
+ * Send object to back (bottom of z-index)
+ */
+export const sendToBack = (object, canvas) => {
+  if (!object || !canvas) return;
+  canvas.sendToBack(object);
+  canvas.renderAll();
+};
+
+/**
+ * Bring object forward one level
+ */
+export const bringForward = (object, canvas) => {
+  if (!object || !canvas) return;
+  canvas.bringForward(object);
+  canvas.renderAll();
+};
+
+/**
+ * Send object backward one level
+ */
+export const sendBackward = (object, canvas) => {
+  if (!object || !canvas) return;
+  canvas.sendBackward(object);
+  canvas.renderAll();
+};
+
+/**
+ * Move object to specific z-index
+ */
+export const moveToIndex = (object, index, canvas) => {
+  if (!object || !canvas) return;
+  canvas.moveTo(object, index);
+  canvas.renderAll();
+};

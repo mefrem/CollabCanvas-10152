@@ -62,7 +62,7 @@ const ColorPicker = ({ selectedObjects, onColorChange, fabricCanvas }) => {
     <div
       style={{
         position: "absolute",
-        top: "80px", // Moved below toolbar to avoid any overlap
+        bottom: "100px",
         left: "20px",
         zIndex: 1000,
         background: "white",
