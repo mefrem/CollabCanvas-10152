@@ -96,7 +96,7 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
         position: "fixed",
         top: "72px",
         right: 0,
-        bottom: 0,
+        bottom: "100px",
         width: "380px",
         background: "white",
         borderLeft: "1px solid var(--gray-200)",
