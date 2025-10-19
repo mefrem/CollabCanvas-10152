@@ -112,18 +112,18 @@ body {
   border: 1px solid var(--gray-200);
   border-radius: var(--border-radius-lg);
   box-shadow: var(--shadow-lg);
-  padding: var(--spacing-md);
+  padding: var(--spacing-xs) var(--spacing-sm);
   display: flex;
-  gap: var(--spacing-sm);
+  gap: var(--spacing-xs);
   animation: slideInDown var(--transition-normal);
   max-width: calc(100vw - 400px);
   overflow-x: auto;
 }
 
 .toolbar button {
-  min-width: 40px;
-  min-height: 40px;
-  padding: var(--spacing-sm) var(--spacing-md);
+  min-width: 32px;
+  min-height: 32px;
+  padding: var(--spacing-xs) var(--spacing-sm);
   border: 1px solid var(--gray-200);
   border-radius: var(--border-radius);
   background: var(--gray-50);
@@ -134,7 +134,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: var(--spacing-xs);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   position: relative;
 }

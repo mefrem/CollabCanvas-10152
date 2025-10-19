@@ -54,7 +54,7 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
       <div
         style={{
           position: "fixed",
-          top: "144px",
+          top: "72px",
           right: "var(--spacing-xl)",
           zIndex: "var(--z-panel)",
         }}
@@ -65,7 +65,8 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
             width: "56px",
             height: "56px",
             borderRadius: "var(--border-radius-full)",
-            background: "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)",
+            background:
+              "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)",
             color: "white",
             border: "none",
             cursor: "pointer",
@@ -93,7 +94,7 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
     <div
       style={{
         position: "fixed",
-        top: "144px",
+        top: "72px",
         right: 0,
         bottom: 0,
         width: "380px",
@@ -111,14 +112,21 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
         style={{
           padding: "var(--spacing-lg)",
           borderBottom: "1px solid var(--gray-200)",
-          background: "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)",
+          background:
+            "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)",
           color: "white",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
         }}
       >
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-sm)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--spacing-sm)",
+          }}
+        >
           <MessageSquare size={20} />
           <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600" }}>
             AI Canvas Assistant
@@ -171,14 +179,33 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
               color: "var(--gray-500)",
             }}
           >
-            <MessageSquare size={48} color="var(--gray-300)" style={{ margin: "0 auto var(--spacing-lg)" }} />
-            <p style={{ margin: 0, marginBottom: "var(--spacing-sm)", fontSize: "15px", fontWeight: "500" }}>
+            <MessageSquare
+              size={48}
+              color="var(--gray-300)"
+              style={{ margin: "0 auto var(--spacing-lg)" }}
+            />
+            <p
+              style={{
+                margin: 0,
+                marginBottom: "var(--spacing-sm)",
+                fontSize: "15px",
+                fontWeight: "500",
+              }}
+            >
               Welcome to AI Canvas Assistant
             </p>
             <p style={{ margin: 0, fontSize: "13px", lineHeight: "1.6" }}>
-              I can help you create, modify, and arrange objects on your canvas. Try one of these:
+              I can help you create, modify, and arrange objects on your canvas.
+              Try one of these:
             </p>
-            <div style={{ marginTop: "var(--spacing-lg)", display: "flex", flexDirection: "column", gap: "var(--spacing-sm)" }}>
+            <div
+              style={{
+                marginTop: "var(--spacing-lg)",
+                display: "flex",
+                flexDirection: "column",
+                gap: "var(--spacing-sm)",
+              }}
+            >
               {exampleCommands.map((example, idx) => (
                 <button
                   key={idx}
@@ -224,16 +251,23 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
                     maxWidth: "85%",
                     padding: "var(--spacing-md)",
                     borderRadius: "var(--border-radius-lg)",
-                    background: msg.type === "user"
-                      ? "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)"
-                      : msg.success
-                      ? "white"
-                      : "var(--error-color)",
-                    color: msg.type === "user" || !msg.success ? "white" : "var(--gray-800)",
+                    background:
+                      msg.type === "user"
+                        ? "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)"
+                        : msg.success
+                        ? "white"
+                        : "var(--error-color)",
+                    color:
+                      msg.type === "user" || !msg.success
+                        ? "white"
+                        : "var(--gray-800)",
                     boxShadow: "var(--shadow-sm)",
                     fontSize: "14px",
                     lineHeight: "1.5",
-                    border: msg.type === "ai" && msg.success ? "1px solid var(--gray-200)" : "none",
+                    border:
+                      msg.type === "ai" && msg.success
+                        ? "1px solid var(--gray-200)"
+                        : "none",
                   }}
                 >
                   {msg.content}
@@ -247,7 +281,10 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
                     paddingRight: msg.type === "user" ? "var(--spacing-sm)" : 0,
                   }}
                 >
-                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.timestamp.toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
                 </div>
               </div>
             ))}
@@ -265,8 +302,14 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
                   border: "1px solid var(--gray-200)",
                 }}
               >
-                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} color="var(--primary-color)" />
-                <span style={{ fontSize: "14px", color: "var(--gray-600)" }}>AI is thinking...</span>
+                <Loader2
+                  size={16}
+                  style={{ animation: "spin 1s linear infinite" }}
+                  color="var(--primary-color)"
+                />
+                <span style={{ fontSize: "14px", color: "var(--gray-600)" }}>
+                  AI is thinking...
+                </span>
               </div>
             )}
             <div ref={messagesEndRef} />
@@ -282,7 +325,10 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
           background: "white",
         }}
       >
-        <form onSubmit={handleSubmit} style={{ display: "flex", gap: "var(--spacing-sm)" }}>
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", gap: "var(--spacing-sm)" }}
+        >
           <input
             type="text"
             value={command}
@@ -315,19 +361,21 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
             disabled={!command.trim() || isLoading}
             style={{
               padding: "var(--spacing-md)",
-              background: (!command.trim() || isLoading)
-                ? "var(--gray-300)"
-                : "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)",
+              background:
+                !command.trim() || isLoading
+                  ? "var(--gray-300)"
+                  : "linear-gradient(135deg, var(--primary-color) 0%, var(--primary-hover) 100%)",
               color: "white",
               border: "none",
               borderRadius: "var(--border-radius)",
-              cursor: (!command.trim() || isLoading) ? "not-allowed" : "pointer",
+              cursor: !command.trim() || isLoading ? "not-allowed" : "pointer",
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
               minWidth: "44px",
               transition: "all var(--transition-fast)",
-              boxShadow: (!command.trim() || isLoading) ? "none" : "var(--shadow-sm)",
+              boxShadow:
+                !command.trim() || isLoading ? "none" : "var(--shadow-sm)",
             }}
             onMouseEnter={(e) => {
               if (command.trim() && !isLoading) {
@@ -343,7 +391,10 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
             }}
           >
             {isLoading ? (
-              <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+              <Loader2
+                size={18}
+                style={{ animation: "spin 1s linear infinite" }}
+              />
             ) : (
               <Send size={18} />
             )}
@@ -366,4 +417,3 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
 };
 
 export default AIChatPanel;
-

@@ -33,7 +33,7 @@ const LeftSidebar = ({
       <div
         style={{
           position: "fixed",
-          top: "144px",
+          top: "72px",
           left: 0,
           bottom: 0,
           width: "48px",
@@ -117,7 +117,7 @@ const LeftSidebar = ({
     <div
       style={{
         position: "fixed",
-        top: "144px",
+        top: "72px",
         left: 0,
         bottom: 0,
         width: "320px",
@@ -246,4 +246,3 @@ const LeftSidebar = ({
 };
 
 export default LeftSidebar;
-

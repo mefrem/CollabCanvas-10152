@@ -163,16 +163,16 @@ const Toolbar = ({
           onClick={() => onToolChange(id)}
           title={label}
         >
-          <Icon size={16} />
+          <Icon size={14} />
         </button>
       ))}
 
       <div
         style={{
           width: "1px",
-          height: "30px",
+          height: "24px",
           background: "#ddd",
-          margin: "0 5px",
+          margin: "0 4px",
         }}
       />
 
@@ -197,9 +197,9 @@ const Toolbar = ({
       <div
         style={{
           width: "1px",
-          height: "30px",
+          height: "24px",
           background: "#ddd",
-          margin: "0 5px",
+          margin: "0 4px",
         }}
       />
 
@@ -211,7 +211,7 @@ const Toolbar = ({
           opacity: hasSelection ? 1 : 0.5,
         }}
       >
-        <Copy size={16} />
+        <Copy size={14} />
       </button>
 
       <button
@@ -223,16 +223,16 @@ const Toolbar = ({
           color: hasSelection ? "#dc3545" : "#6c757d",
         }}
       >
-        <Trash2 size={16} />
+        <Trash2 size={14} />
       </button>
 
       {/* Alignment Tools */}
       <div
         style={{
           width: "1px",
-          height: "30px",
+          height: "24px",
           background: "#ddd",
-          margin: "0 5px",
+          margin: "0 4px",
         }}
       />
 
@@ -262,7 +262,7 @@ const Toolbar = ({
                   : 1,
             }}
           >
-            <Icon size={16} />
+            <Icon size={14} />
           </button>
         )
       )}
@@ -271,9 +271,9 @@ const Toolbar = ({
       <div
         style={{
           width: "1px",
-          height: "30px",
+          height: "24px",
           background: "#ddd",
-          margin: "0 5px",
+          margin: "0 4px",
         }}
       />
 
@@ -288,7 +288,7 @@ const Toolbar = ({
               opacity: requiresSelection && !hasSelection ? 0.5 : 1,
             }}
           >
-            <Icon size={16} />
+            <Icon size={14} />
           </button>
         )
       )}
