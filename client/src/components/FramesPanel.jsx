@@ -24,6 +24,7 @@ const FramesPanel = ({
   onDeleteFrame,
   onDuplicateFrame,
   onSelectFrame,
+  embedded = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAddingFrame, setIsAddingFrame] = useState(false);
@@ -62,53 +63,72 @@ const FramesPanel = ({
     setIsAddingFrame(false);
   };
 
-  return (
-    <div
-      style={{
+  const containerStyle = embedded
+    ? {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }
+    : {
         position: "fixed",
         bottom: "20px",
-        left: "20px",
-        width: "300px",
-        maxHeight: "400px",
+        left: "340px",
+        width: "320px",
+        maxHeight: "500px",
         background: "white",
-        borderRadius: "12px",
-        boxShadow: "0 4px 16px rgba(0, 0, 0, 0.15)",
-        zIndex: 1000,
+        borderRadius: "var(--border-radius-lg)",
+        boxShadow: "var(--shadow-xl)",
+        zIndex: "var(--z-panel)",
         display: "flex",
         flexDirection: "column",
         animation: "slideInLeft 0.3s ease",
-      }}
-    >
+      };
+
+  return (
+    <div style={containerStyle}>
       {/* Header */}
       <div
         style={{
-          padding: "16px 20px",
-          borderBottom: isCollapsed ? "none" : "1px solid #e5e7eb",
+          padding: embedded ? "var(--spacing-lg)" : "var(--spacing-lg) var(--spacing-xl)",
+          borderBottom: isCollapsed ? "none" : "1px solid var(--gray-200)",
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
+          background: embedded ? "transparent" : "var(--gray-50)",
         }}
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            cursor: "pointer",
-          }}
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        >
-          <Frame size={20} color="#3b82f6" />
-          <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600" }}>
-            Frames
-          </h3>
-          {isCollapsed ? (
-            <ChevronDown size={16} color="#6b7280" />
-          ) : (
-            <ChevronUp size={16} color="#6b7280" />
-          )}
-        </div>
-        {!isCollapsed && (
+        {!embedded ? (
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--spacing-sm)",
+              cursor: "pointer",
+            }}
+            onClick={() => setIsCollapsed(!isCollapsed)}
+          >
+            <Frame size={20} color="var(--primary-color)" />
+            <h3 style={{ margin: 0, fontSize: "16px", fontWeight: "600", color: "var(--gray-800)" }}>
+              Frames
+            </h3>
+            {isCollapsed ? (
+              <ChevronDown size={16} color="var(--gray-500)" />
+            ) : (
+              <ChevronUp size={16} color="var(--gray-500)" />
+            )}
+          </div>
+        ) : (
+          <div style={{ fontSize: "14px", fontWeight: "600", color: "var(--gray-700)" }}>
+            {frames.length} Frame{frames.length !== 1 ? "s" : ""}
+          </div>
+        )}
+        {(!isCollapsed || embedded) && (
           <button
             onClick={() => setIsAddingFrame(!isAddingFrame)}
             style={{
@@ -152,7 +172,7 @@ const FramesPanel = ({
       </div>
 
       {/* Content */}
-      {!isCollapsed && (
+      {(!isCollapsed || embedded) && (
         <div
           style={{
             flex: 1,

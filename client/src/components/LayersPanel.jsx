@@ -24,6 +24,7 @@ const LayersPanel = ({
   onToggleLock,
   onRenameObject,
   onReorderLayers,
+  embedded = false,
 }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [layers, setLayers] = useState([]);
@@ -168,49 +169,63 @@ const LayersPanel = ({
     return selectedObjects.some((obj) => obj.uuid === layerId);
   };
 
-  return (
-    <div
-      style={{
+  const containerStyle = embedded
+    ? {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "white",
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden",
+      }
+    : {
         position: "fixed",
-        top: "80px",
+        top: "128px",
         left: "20px",
-        width: "250px",
+        width: "280px",
         maxHeight: "calc(100vh - 160px)",
         background: "white",
-        borderRadius: "8px",
-        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-        zIndex: 1000,
+        borderRadius: "var(--border-radius-lg)",
+        boxShadow: "var(--shadow-lg)",
+        zIndex: "var(--z-panel)",
         display: "flex",
         flexDirection: "column",
         animation: "slideInLeft 0.3s ease",
-      }}
-    >
-      {/* Header */}
-      <div
-        style={{
-          padding: "12px 16px",
-          borderBottom: isCollapsed ? "none" : "1px solid #e5e7eb",
-          fontWeight: "600",
-          fontSize: "14px",
-          color: "#1f2937",
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          cursor: "pointer",
-        }}
-        onClick={() => setIsCollapsed(!isCollapsed)}
-      >
-        <Layers size={18} color="#3b82f6" />
-        <span>Layers</span>
-        {isCollapsed ? (
-          <ChevronDown size={16} color="#6b7280" />
-        ) : (
-          <ChevronUp size={16} color="#6b7280" />
-        )}
-      </div>
+      };
+
+  return (
+    <div style={containerStyle}>
+      {/* Header - Only show if not embedded */}
+      {!embedded && (
+        <div
+          style={{
+            padding: "var(--spacing-md) var(--spacing-lg)",
+            borderBottom: isCollapsed ? "none" : "1px solid var(--gray-200)",
+            fontWeight: "600",
+            fontSize: "14px",
+            color: "var(--gray-800)",
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--spacing-sm)",
+            cursor: "pointer",
+          }}
+          onClick={() => setIsCollapsed(!isCollapsed)}
+        >
+          <Layers size={18} color="var(--primary-color)" />
+          <span>Layers</span>
+          {isCollapsed ? (
+            <ChevronDown size={16} color="var(--gray-500)" />
+          ) : (
+            <ChevronUp size={16} color="var(--gray-500)" />
+          )}
+        </div>
+      )}
 
       {/* Layers List */}
-      {!isCollapsed && (
+      {(!isCollapsed || embedded) && (
         <div
           style={{
             flex: 1,

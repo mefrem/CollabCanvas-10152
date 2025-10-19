@@ -4,9 +4,8 @@ import Toolbar from "./Toolbar";
 import CursorOverlay from "./CursorOverlay";
 import ColorPicker from "./ColorPicker";
 import AICommandInput from "./AICommandInput";
-import LayersPanel from "./LayersPanel";
+import LeftSidebar from "./LeftSidebar";
 import ExportDialog from "./ExportDialog";
-import FramesPanel from "./FramesPanel";
 import TextFormatPanel from "./TextFormatPanel";
 import EditHistoryBadge from "./EditHistoryBadge";
 import { useYjs } from "../hooks/useYjs";
@@ -1155,95 +1154,147 @@ const Canvas = ({ user, onLogout }) => {
 
   return (
     <div className="canvas-container">
-      {/* Connection Status with Users Dropdown */}
-      <div style={{ position: "relative" }}>
+      {/* Unified Top Bar */}
+      <div
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          height: "56px",
+          background: "white",
+          borderBottom: "1px solid var(--gray-200)",
+          boxShadow: "var(--shadow-sm)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "0 var(--spacing-xl)",
+          zIndex: "var(--z-toolbar)",
+        }}
+      >
+        {/* Left: User Info & Logout */}
         <div
-          className="connection-status"
-          onClick={() =>
-            userCount >= 2 && setShowUsersDropdown(!showUsersDropdown)
-          }
           style={{
-            cursor: userCount >= 2 ? "pointer" : "default",
-            userSelect: "none",
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--spacing-lg)",
           }}
         >
-          <div className={`status-dot status-${connectionStatus}`}></div>
-          <span>
-            {connectionStatus === "connected" && "Connected"}
-            {connectionStatus === "reconnecting" && "Reconnecting..."}
-            {connectionStatus === "disconnected" && "Disconnected"}
-          </span>
-          <span style={{ marginLeft: "10px", fontSize: "12px", color: "#666" }}>
-            {userCount} user{userCount !== 1 ? "s" : ""} online
-            {userCount >= 2 && <span style={{ marginLeft: "5px" }}>▼</span>}
-          </span>
-        </div>
-
-        {/* Users Dropdown */}
-        {showUsersDropdown && userCount >= 2 && (
           <div
             style={{
-              position: "absolute",
-              top: "50px",
-              right: "0",
-              background: "white",
-              border: "1px solid #ddd",
-              borderRadius: "8px",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-              padding: "12px",
-              minWidth: "200px",
-              zIndex: 1001,
+              fontSize: "18px",
+              fontWeight: "700",
+              color: "var(--primary-color)",
+              letterSpacing: "-0.5px",
             }}
           >
-            <div
+            CollabCanvas
+          </div>
+          <div
+            style={{
+              height: "24px",
+              width: "1px",
+              background: "var(--gray-200)",
+            }}
+          />
+          <span style={{ fontSize: "14px", color: "var(--gray-700)" }}>
+            {user.username}
+          </span>
+          <button
+            onClick={onLogout}
+            style={{
+              padding: "6px 12px",
+              background: "var(--gray-100)",
+              color: "var(--gray-700)",
+              border: "1px solid var(--gray-200)",
+              borderRadius: "var(--border-radius)",
+              fontSize: "13px",
+              fontWeight: "500",
+              cursor: "pointer",
+              transition: "all var(--transition-fast)",
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "var(--error-color)";
+              e.target.style.color = "white";
+              e.target.style.borderColor = "var(--error-color)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "var(--gray-100)";
+              e.target.style.color = "var(--gray-700)";
+              e.target.style.borderColor = "var(--gray-200)";
+            }}
+          >
+            Logout
+          </button>
+        </div>
+
+        {/* Right: Connection Status with Dropdown */}
+        <div style={{ position: "relative" }}>
+          <div
+            className="connection-status"
+            onClick={() =>
+              userCount >= 2 && setShowUsersDropdown(!showUsersDropdown)
+            }
+            style={{
+              cursor: userCount >= 2 ? "pointer" : "default",
+              userSelect: "none",
+            }}
+          >
+            <div className={`status-dot status-${connectionStatus}`}></div>
+            <span style={{ color: "var(--gray-700)" }}>
+              {connectionStatus === "connected" && "Connected"}
+              {connectionStatus === "reconnecting" && "Reconnecting..."}
+              {connectionStatus === "disconnected" && "Disconnected"}
+            </span>
+            <span
               style={{
+                marginLeft: "var(--spacing-md)",
                 fontSize: "12px",
-                fontWeight: "bold",
-                marginBottom: "8px",
-                color: "#333",
+                color: "var(--gray-500)",
               }}
             >
-              Connected Users
-            </div>
+              {userCount} user{userCount !== 1 ? "s" : ""}
+              {userCount >= 2 && <span style={{ marginLeft: "4px" }}>▼</span>}
+            </span>
+          </div>
 
-            {/* Current User */}
+          {/* Users Dropdown */}
+          {showUsersDropdown && userCount >= 2 && (
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                padding: "6px 8px",
-                borderRadius: "4px",
-                backgroundColor: "#f0f9ff",
-                marginBottom: "4px",
+                position: "absolute",
+                top: "48px",
+                right: "0",
+                background: "white",
+                border: "1px solid var(--gray-200)",
+                borderRadius: "var(--border-radius-lg)",
+                boxShadow: "var(--shadow-xl)",
+                padding: "var(--spacing-md)",
+                minWidth: "220px",
+                zIndex: "var(--z-dropdown)",
               }}
             >
               <div
                 style={{
-                  width: "12px",
-                  height: "12px",
-                  borderRadius: "50%",
-                  backgroundColor: user.color,
-                  border: "2px solid white",
-                  boxShadow: "0 0 0 1px #ddd",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  marginBottom: "var(--spacing-sm)",
+                  color: "var(--gray-700)",
                 }}
-              />
-              <span style={{ fontSize: "13px", fontWeight: "500" }}>
-                {user.username} (you)
-              </span>
-            </div>
+              >
+                Connected Users
+              </div>
 
-            {/* Other Connected Users */}
-            {connectedUsers.map((connectedUser) => (
+              {/* Current User */}
               <div
-                key={connectedUser.userId}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: "8px",
-                  padding: "6px 8px",
-                  borderRadius: "4px",
-                  marginBottom: "2px",
+                  gap: "var(--spacing-sm)",
+                  padding: "var(--spacing-sm)",
+                  borderRadius: "var(--border-radius)",
+                  backgroundColor: "var(--primary-light)",
+                  marginBottom: "4px",
                 }}
               >
                 <div
@@ -1251,51 +1302,47 @@ const Canvas = ({ user, onLogout }) => {
                     width: "12px",
                     height: "12px",
                     borderRadius: "50%",
-                    backgroundColor: connectedUser.color,
+                    backgroundColor: user.color,
                     border: "2px solid white",
-                    boxShadow: "0 0 0 1px #ddd",
+                    boxShadow: "0 0 0 1px var(--gray-300)",
                   }}
                 />
-                <span style={{ fontSize: "13px" }}>
-                  {connectedUser.username}
+                <span style={{ fontSize: "13px", fontWeight: "500" }}>
+                  {user.username} (you)
                 </span>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
 
-      {/* User Info & Logout */}
-      <div
-        style={{
-          position: "absolute",
-          top: "20px",
-          left: "20px",
-          zIndex: 1000,
-          background: "white",
-          padding: "8px 12px",
-          borderRadius: "6px",
-          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
-          display: "flex",
-          alignItems: "center",
-          gap: "10px",
-        }}
-      >
-        <span style={{ fontSize: "14px" }}>Welcome, {user.username}!</span>
-        <button
-          onClick={onLogout}
-          style={{
-            padding: "4px 8px",
-            background: "#dc3545",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "12px",
-            cursor: "pointer",
-          }}
-        >
-          Logout
-        </button>
+              {/* Other Connected Users */}
+              {connectedUsers.map((connectedUser) => (
+                <div
+                  key={connectedUser.userId}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "var(--spacing-sm)",
+                    padding: "var(--spacing-sm)",
+                    borderRadius: "var(--border-radius)",
+                    marginBottom: "2px",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: "12px",
+                      height: "12px",
+                      borderRadius: "50%",
+                      backgroundColor: connectedUser.color,
+                      border: "2px solid white",
+                      boxShadow: "0 0 0 1px var(--gray-300)",
+                    }}
+                  />
+                  <span style={{ fontSize: "13px" }}>
+                    {connectedUser.username}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Toolbar */}
@@ -1326,8 +1373,8 @@ const Canvas = ({ user, onLogout }) => {
         onExport={() => setShowExportDialog(true)}
       />
 
-      {/* Layers Panel */}
-      <LayersPanel
+      {/* Left Sidebar - Layers & Frames */}
+      <LeftSidebar
         fabricCanvas={fabricCanvasRef.current}
         selectedObjects={selectedObjects}
         onSelectObject={handleSelectObject}
@@ -1336,6 +1383,13 @@ const Canvas = ({ user, onLogout }) => {
         onToggleLock={handleToggleLock}
         onRenameObject={handleRenameObject}
         onReorderLayers={handleReorderLayers}
+        frames={frames}
+        activeFrameId={activeFrameId}
+        onAddFrame={handleAddFrame}
+        onUpdateFrame={updateFrame}
+        onDeleteFrame={deleteFrame}
+        onDuplicateFrame={duplicateFrame}
+        onSelectFrame={handleSelectFrame}
       />
 
       {/* Color Picker */}
@@ -1345,56 +1399,23 @@ const Canvas = ({ user, onLogout }) => {
         fabricCanvas={fabricCanvasRef.current}
       />
 
-      {/* Zoom Controls */}
+      {/* Zoom Controls - Compact pill style */}
       <div
         style={{
           position: "absolute",
-          bottom: "20px",
-          right: "20px",
-          zIndex: 1000,
+          bottom: "var(--spacing-xl)",
+          right: "var(--spacing-xl)",
+          zIndex: "var(--z-panel)",
           background: "white",
-          borderRadius: "8px",
-          boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
-          padding: "10px",
+          borderRadius: "var(--border-radius-full)",
+          boxShadow: "var(--shadow-lg)",
           display: "flex",
-          flexDirection: "column",
-          gap: "5px",
+          alignItems: "center",
+          gap: "2px",
+          padding: "6px",
+          border: "1px solid var(--gray-200)",
         }}
       >
-        {/* Zoom Level Display */}
-        <div
-          style={{
-            padding: "5px 10px",
-            textAlign: "center",
-            fontSize: "14px",
-            fontWeight: "600",
-            color: "#3b82f6",
-            borderBottom: "1px solid #e5e7eb",
-            paddingBottom: "8px",
-          }}
-        >
-          {zoomLevel}%
-        </div>
-
-        <button
-          onClick={() => {
-            const canvas = fabricCanvasRef.current;
-            const zoom = canvas.getZoom();
-            const newZoom = Math.min(zoom * 1.2, 3);
-            canvas.setZoom(newZoom);
-            setZoomLevel(Math.round(newZoom * 100));
-          }}
-          style={{
-            padding: "5px 10px",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            background: "white",
-            cursor: "pointer",
-            fontSize: "12px",
-          }}
-        >
-          Zoom In
-        </button>
         <button
           onClick={() => {
             const canvas = fabricCanvasRef.current;
@@ -1404,62 +1425,74 @@ const Canvas = ({ user, onLogout }) => {
             setZoomLevel(Math.round(newZoom * 100));
           }}
           style={{
-            padding: "5px 10px",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            background: "white",
+            width: "32px",
+            height: "32px",
+            border: "none",
+            borderRadius: "50%",
+            background: "var(--gray-50)",
             cursor: "pointer",
-            fontSize: "12px",
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "var(--gray-700)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all var(--transition-fast)",
           }}
-        >
-          Zoom Out
-        </button>
-        <button
-          onClick={handleFitToScreen}
-          style={{
-            padding: "5px 10px",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            background: "white",
-            cursor: "pointer",
-            fontSize: "12px",
+          onMouseEnter={(e) => {
+            e.target.style.background = "var(--gray-100)";
           }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "var(--gray-50)";
+          }}
+          title="Zoom out"
         >
-          Fit Screen
+          −
         </button>
         <div
           style={{
-            width: "100%",
-            height: "1px",
-            background: "#ddd",
-            margin: "5px 0",
-          }}
-        />
-        <button
-          onClick={async () => {
-            const success = await saveNow();
-            if (success) {
-              // Show temporary success message
-              const button = event.target;
-              const originalText = button.textContent;
-              button.textContent = "Saved!";
-              button.style.background = "#22c55e";
-              setTimeout(() => {
-                button.textContent = originalText;
-                button.style.background = "white";
-              }, 2000);
-            }
-          }}
-          style={{
-            padding: "5px 10px",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            background: "white",
-            cursor: "pointer",
-            fontSize: "12px",
+            padding: "0 var(--spacing-md)",
+            fontSize: "13px",
+            fontWeight: "600",
+            color: "var(--primary-color)",
+            minWidth: "50px",
+            textAlign: "center",
           }}
         >
-          Save Now
+          {zoomLevel}%
+        </div>
+        <button
+          onClick={() => {
+            const canvas = fabricCanvasRef.current;
+            const zoom = canvas.getZoom();
+            const newZoom = Math.min(zoom * 1.2, 3);
+            canvas.setZoom(newZoom);
+            setZoomLevel(Math.round(newZoom * 100));
+          }}
+          style={{
+            width: "32px",
+            height: "32px",
+            border: "none",
+            borderRadius: "50%",
+            background: "var(--gray-50)",
+            cursor: "pointer",
+            fontSize: "18px",
+            fontWeight: "600",
+            color: "var(--gray-700)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all var(--transition-fast)",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = "var(--gray-100)";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "var(--gray-50)";
+          }}
+          title="Zoom in"
+        >
+          +
         </button>
       </div>
 
@@ -1516,17 +1549,6 @@ const Canvas = ({ user, onLogout }) => {
         onClose={() => setShowExportDialog(false)}
         onExport={handleExport}
         hasSelection={selectedObjects.length > 0}
-      />
-
-      {/* Frames Panel */}
-      <FramesPanel
-        frames={frames}
-        activeFrameId={activeFrameId}
-        onAddFrame={handleAddFrame}
-        onUpdateFrame={updateFrame}
-        onDeleteFrame={deleteFrame}
-        onDuplicateFrame={duplicateFrame}
-        onSelectFrame={handleSelectFrame}
       />
 
       {/* Text Format Panel */}
@@ -1615,14 +1637,13 @@ const Canvas = ({ user, onLogout }) => {
         </div>
       </div>
 
-      {/* Collapsible Help Panel */}
+      {/* Help Button - Bottom Right */}
       <div
         style={{
           position: "absolute",
-          top: "50%",
-          right: "20px",
-          transform: "translateY(-50%)",
-          zIndex: 1000,
+          bottom: "var(--spacing-xl)",
+          right: "calc(var(--spacing-xl) + 160px)",
+          zIndex: "var(--z-panel)",
         }}
         onMouseEnter={() => setShowHelp(true)}
         onMouseLeave={() => setShowHelp(false)}
@@ -1630,20 +1651,20 @@ const Canvas = ({ user, onLogout }) => {
         {/* Help Button */}
         <div
           style={{
-            width: "40px",
-            height: "40px",
-            borderRadius: "50%",
-            background: showHelp ? "#3B82F6" : "#ffffff",
-            color: showHelp ? "#ffffff" : "#3B82F6",
-            border: "2px solid #3B82F6",
+            width: "44px",
+            height: "44px",
+            borderRadius: "var(--border-radius-full)",
+            background: showHelp ? "var(--primary-color)" : "white",
+            color: showHelp ? "white" : "var(--primary-color)",
+            border: `2px solid ${showHelp ? "var(--primary-color)" : "var(--gray-200)"}`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "18px",
-            fontWeight: "bold",
+            fontSize: "20px",
+            fontWeight: "700",
             cursor: "pointer",
-            boxShadow: "0 2px 10px rgba(0, 0, 0, 0.1)",
-            transition: "all 0.2s ease",
+            boxShadow: showHelp ? "var(--shadow-xl)" : "var(--shadow-md)",
+            transition: "all var(--transition-normal)",
           }}
         >
           ?
@@ -1654,93 +1675,73 @@ const Canvas = ({ user, onLogout }) => {
           <div
             style={{
               position: "absolute",
-              top: "50px",
+              bottom: "56px",
               right: "0",
               background: "white",
-              borderRadius: "8px",
-              boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
-              padding: "12px",
-              fontSize: "11px",
-              width: "220px",
-              lineHeight: "1.3",
-              animation: "fadeIn 0.2s ease",
+              border: "1px solid var(--gray-200)",
+              borderRadius: "var(--border-radius-lg)",
+              boxShadow: "var(--shadow-2xl)",
+              padding: "var(--spacing-lg)",
+              fontSize: "12px",
+              width: "280px",
+              lineHeight: "1.5",
+              animation: "slideInUp 0.2s ease",
               maxHeight: "500px",
               overflowY: "auto",
             }}
           >
             <div
               style={{
-                fontWeight: "bold",
-                marginBottom: "6px",
-                fontSize: "12px",
+                fontWeight: "700",
+                marginBottom: "var(--spacing-md)",
+                fontSize: "14px",
+                color: "var(--gray-900)",
               }}
             >
-              ⌨️ Shortcuts
+              ⌨️ Keyboard Shortcuts
             </div>
-            <div>• Space + Drag: Pan</div>
-            <div>• Delete/Backspace: Remove</div>
-            <div>• Arrows: Nudge (+ Shift)</div>
-            <div>• Cmd/Ctrl+D: Duplicate</div>
-            <div>• Cmd/Ctrl+E: Export</div>
-            <div>• Cmd/Ctrl+Z: Undo</div>
-            <div>• Shift+Click: Multi-select</div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>Space + Drag:</strong> Pan canvas</div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>Delete/Backspace:</strong> Remove</div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>Arrows:</strong> Nudge (+ Shift)</div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>⌘/Ctrl+D:</strong> Duplicate</div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>⌘/Ctrl+Z:</strong> Undo/Redo</div>
 
             <div
               style={{
-                marginTop: "8px",
-                paddingTop: "8px",
-                borderTop: "1px solid #eee",
+                marginTop: "var(--spacing-lg)",
+                paddingTop: "var(--spacing-lg)",
+                borderTop: "1px solid var(--gray-200)",
               }}
             >
               <div
                 style={{
-                  fontWeight: "bold",
-                  marginBottom: "4px",
-                  fontSize: "12px",
+                  fontWeight: "700",
+                  marginBottom: "var(--spacing-sm)",
+                  fontSize: "14px",
+                  color: "var(--gray-900)",
                 }}
               >
-                🎨 Design Tools
+                🤖 AI Canvas Agent
               </div>
-              <div style={{ opacity: 0.8 }}>
-                <div>• Layers: Manage objects</div>
-                <div>• Frames: Device artboards</div>
-                <div>• Export: PNG/SVG/JSON</div>
+              <div style={{ color: "var(--gray-600)", fontSize: "11px", fontStyle: "italic" }}>
+                Try commands like:
               </div>
+              <div style={{ color: "var(--gray-700)", marginTop: "6px" }}>• "Create a red circle"</div>
+              <div style={{ color: "var(--gray-700)" }}>• "Arrange in a row"</div>
+              <div style={{ color: "var(--gray-700)" }}>• "Create login form"</div>
             </div>
 
             <div
               style={{
-                marginTop: "8px",
-                paddingTop: "8px",
-                borderTop: "1px solid #eee",
+                marginTop: "var(--spacing-lg)",
+                paddingTop: "var(--spacing-lg)",
+                borderTop: "1px solid var(--gray-200)",
+                fontSize: "11px",
+                color: "var(--gray-500)",
+                textAlign: "center",
               }}
             >
-              <div
-                style={{
-                  fontWeight: "bold",
-                  marginBottom: "4px",
-                  fontSize: "12px",
-                }}
-              >
-                🤖 AI Commands
-              </div>
-              <div style={{ opacity: 0.8 }}>
-                <div>• "Create red circle"</div>
-                <div>• "Move to center"</div>
-                <div>• "Create login form"</div>
-              </div>
-            </div>
-
-            <div
-              style={{
-                marginTop: "8px",
-                paddingTop: "8px",
-                borderTop: "1px solid #eee",
-                fontSize: "10px",
-                opacity: 0.7,
-              }}
-            >
-              Real-time sync • Auto-save • Production-ready
+              Real-time collaboration • AI-powered • Production-ready
             </div>
           </div>
         )}

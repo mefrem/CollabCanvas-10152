@@ -5,9 +5,9 @@ export const setupYjsServer = (httpServer) => {
   try {
     // In production, attach to the same HTTP server
     // In development, can use separate port
-    const wss = httpServer 
-      ? new WebSocketServer({ 
-          noServer: true,  // Will handle upgrade manually
+    const wss = httpServer
+      ? new WebSocketServer({
+          noServer: true, // Will handle upgrade manually
           perMessageDeflate: {
             zlibDeflateOptions: {
               threshold: 1024,
@@ -36,12 +36,12 @@ export const setupYjsServer = (httpServer) => {
     if (httpServer) {
       httpServer.on("upgrade", (request, socket, head) => {
         const { pathname } = new URL(request.url, "http://localhost");
-        
+
         // Let Socket.io handle its own upgrades
         if (pathname.startsWith("/socket.io/")) {
           return; // Socket.io will handle this
         }
-        
+
         // Handle Yjs WebSocket upgrades
         wss.handleUpgrade(request, socket, head, (ws) => {
           wss.emit("connection", ws, request);
@@ -63,9 +63,11 @@ export const setupYjsServer = (httpServer) => {
     });
 
     console.log(
-      httpServer 
+      httpServer
         ? "✅ Yjs WebSocket server attached to main HTTP server"
-        : `✅ Yjs WebSocket server listening on port ${process.env.YJS_WS_PORT || 1234}`
+        : `✅ Yjs WebSocket server listening on port ${
+            process.env.YJS_WS_PORT || 1234
+          }`
     );
 
     return wss;
