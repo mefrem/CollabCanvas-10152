@@ -1229,7 +1229,13 @@ const Canvas = ({ user, onLogout }) => {
         </div>
 
         {/* Right: Export Button & Connection Status */}
-        <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-md)" }}>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "var(--spacing-md)",
+          }}
+        >
           {/* Export Button */}
           <button
             onClick={() => setShowExportDialog(true)}
@@ -1259,7 +1265,14 @@ const Canvas = ({ user, onLogout }) => {
             }}
             title="Export (Cmd+E)"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+            >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
@@ -1297,71 +1310,43 @@ const Canvas = ({ user, onLogout }) => {
               </span>
             </div>
 
-          {/* Users Dropdown */}
-          {showUsersDropdown && userCount >= 2 && (
-            <div
-              style={{
-                position: "absolute",
-                top: "48px",
-                right: "0",
-                background: "white",
-                border: "1px solid var(--gray-200)",
-                borderRadius: "var(--border-radius-lg)",
-                boxShadow: "var(--shadow-xl)",
-                padding: "var(--spacing-md)",
-                minWidth: "220px",
-                zIndex: "var(--z-dropdown)",
-              }}
-            >
+            {/* Users Dropdown */}
+            {showUsersDropdown && userCount >= 2 && (
               <div
                 style={{
-                  fontSize: "12px",
-                  fontWeight: "600",
-                  marginBottom: "var(--spacing-sm)",
-                  color: "var(--gray-700)",
-                }}
-              >
-                Connected Users
-              </div>
-
-              {/* Current User */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "var(--spacing-sm)",
-                  padding: "var(--spacing-sm)",
-                  borderRadius: "var(--border-radius)",
-                  backgroundColor: "var(--primary-light)",
-                  marginBottom: "4px",
+                  position: "absolute",
+                  top: "48px",
+                  right: "0",
+                  background: "white",
+                  border: "1px solid var(--gray-200)",
+                  borderRadius: "var(--border-radius-lg)",
+                  boxShadow: "var(--shadow-xl)",
+                  padding: "var(--spacing-md)",
+                  minWidth: "220px",
+                  zIndex: "var(--z-dropdown)",
                 }}
               >
                 <div
                   style={{
-                    width: "12px",
-                    height: "12px",
-                    borderRadius: "50%",
-                    backgroundColor: user.color,
-                    border: "2px solid white",
-                    boxShadow: "0 0 0 1px var(--gray-300)",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    marginBottom: "var(--spacing-sm)",
+                    color: "var(--gray-700)",
                   }}
-                />
-                <span style={{ fontSize: "13px", fontWeight: "500" }}>
-                  {user.username} (you)
-                </span>
-              </div>
+                >
+                  Connected Users
+                </div>
 
-              {/* Other Connected Users */}
-              {connectedUsers.map((connectedUser) => (
+                {/* Current User */}
                 <div
-                  key={connectedUser.userId}
                   style={{
                     display: "flex",
                     alignItems: "center",
                     gap: "var(--spacing-sm)",
                     padding: "var(--spacing-sm)",
                     borderRadius: "var(--border-radius)",
-                    marginBottom: "2px",
+                    backgroundColor: "var(--primary-light)",
+                    marginBottom: "4px",
                   }}
                 >
                   <div
@@ -1369,18 +1354,46 @@ const Canvas = ({ user, onLogout }) => {
                       width: "12px",
                       height: "12px",
                       borderRadius: "50%",
-                      backgroundColor: connectedUser.color,
+                      backgroundColor: user.color,
                       border: "2px solid white",
                       boxShadow: "0 0 0 1px var(--gray-300)",
                     }}
                   />
-                  <span style={{ fontSize: "13px" }}>
-                    {connectedUser.username}
+                  <span style={{ fontSize: "13px", fontWeight: "500" }}>
+                    {user.username} (you)
                   </span>
                 </div>
-              ))}
-            </div>
-          )}
+
+                {/* Other Connected Users */}
+                {connectedUsers.map((connectedUser) => (
+                  <div
+                    key={connectedUser.userId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--spacing-sm)",
+                      padding: "var(--spacing-sm)",
+                      borderRadius: "var(--border-radius)",
+                      marginBottom: "2px",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "12px",
+                        height: "12px",
+                        borderRadius: "50%",
+                        backgroundColor: connectedUser.color,
+                        border: "2px solid white",
+                        boxShadow: "0 0 0 1px var(--gray-300)",
+                      }}
+                    />
+                    <span style={{ fontSize: "13px" }}>
+                      {connectedUser.username}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1577,10 +1590,7 @@ const Canvas = ({ user, onLogout }) => {
       )}
 
       {/* AI Chat Panel */}
-      <AIChatPanel
-        onExecuteCommand={handleAICommand}
-        isLoading={isAILoading}
-      />
+      <AIChatPanel onExecuteCommand={handleAICommand} isLoading={isAILoading} />
 
       {/* Export Dialog */}
       <ExportDialog
@@ -1695,7 +1705,9 @@ const Canvas = ({ user, onLogout }) => {
             borderRadius: "var(--border-radius-full)",
             background: showHelp ? "var(--primary-color)" : "white",
             color: showHelp ? "white" : "var(--primary-color)",
-            border: `2px solid ${showHelp ? "var(--primary-color)" : "var(--gray-200)"}`,
+            border: `2px solid ${
+              showHelp ? "var(--primary-color)" : "var(--gray-200)"
+            }`,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1739,11 +1751,21 @@ const Canvas = ({ user, onLogout }) => {
             >
               ⌨️ Keyboard Shortcuts
             </div>
-            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>Space + Drag:</strong> Pan canvas</div>
-            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>Delete/Backspace:</strong> Remove</div>
-            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>Arrows:</strong> Nudge (+ Shift)</div>
-            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>⌘/Ctrl+D:</strong> Duplicate</div>
-            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>• <strong>⌘/Ctrl+Z:</strong> Undo/Redo</div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>
+              • <strong>Space + Drag:</strong> Pan canvas
+            </div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>
+              • <strong>Delete/Backspace:</strong> Remove
+            </div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>
+              • <strong>Arrows:</strong> Nudge (+ Shift)
+            </div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>
+              • <strong>⌘/Ctrl+D:</strong> Duplicate
+            </div>
+            <div style={{ color: "var(--gray-700)", marginBottom: "6px" }}>
+              • <strong>⌘/Ctrl+Z:</strong> Undo/Redo
+            </div>
 
             <div
               style={{
@@ -1762,12 +1784,24 @@ const Canvas = ({ user, onLogout }) => {
               >
                 🤖 AI Canvas Agent
               </div>
-              <div style={{ color: "var(--gray-600)", fontSize: "11px", fontStyle: "italic" }}>
+              <div
+                style={{
+                  color: "var(--gray-600)",
+                  fontSize: "11px",
+                  fontStyle: "italic",
+                }}
+              >
                 Try commands like:
               </div>
-              <div style={{ color: "var(--gray-700)", marginTop: "6px" }}>• "Create a red circle"</div>
-              <div style={{ color: "var(--gray-700)" }}>• "Arrange in a row"</div>
-              <div style={{ color: "var(--gray-700)" }}>• "Create login form"</div>
+              <div style={{ color: "var(--gray-700)", marginTop: "6px" }}>
+                • "Create a red circle"
+              </div>
+              <div style={{ color: "var(--gray-700)" }}>
+                • "Arrange in a row"
+              </div>
+              <div style={{ color: "var(--gray-700)" }}>
+                • "Create login form"
+              </div>
             </div>
 
             <div

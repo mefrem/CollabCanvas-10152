@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Send, Loader2, MessageSquare, X, Minimize2 } from "lucide-react";
+import { Send, Loader2, MessageSquare, ChevronRight } from "lucide-react";
 
 const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
   const [command, setCommand] = useState("");
@@ -54,7 +54,7 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
       <div
         style={{
           position: "fixed",
-          top: "72px",
+          top: "144px",
           right: "var(--spacing-xl)",
           zIndex: "var(--z-panel)",
         }}
@@ -93,7 +93,7 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
     <div
       style={{
         position: "fixed",
-        top: "72px",
+        top: "144px",
         right: 0,
         bottom: 0,
         width: "380px",
@@ -145,9 +145,9 @@ const AIChatPanel = ({ onExecuteCommand, isLoading }) => {
           onMouseLeave={(e) => {
             e.target.style.background = "rgba(255, 255, 255, 0.2)";
           }}
-          title="Minimize chat"
+          title="Collapse chat to the right"
         >
-          <Minimize2 size={16} />
+          <ChevronRight size={18} />
         </button>
       </div>
 
