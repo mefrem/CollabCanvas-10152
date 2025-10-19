@@ -3,7 +3,7 @@ import { fabric } from "fabric";
 import Toolbar from "./Toolbar";
 import CursorOverlay from "./CursorOverlay";
 import ColorPicker from "./ColorPicker";
-import AICommandInput from "./AICommandInput";
+import AIChatPanel from "./AIChatPanel";
 import LeftSidebar from "./LeftSidebar";
 import ExportDialog from "./ExportDialog";
 import TextFormatPanel from "./TextFormatPanel";
@@ -1228,18 +1228,57 @@ const Canvas = ({ user, onLogout }) => {
           </button>
         </div>
 
-        {/* Right: Connection Status with Dropdown */}
-        <div style={{ position: "relative" }}>
-          <div
-            className="connection-status"
-            onClick={() =>
-              userCount >= 2 && setShowUsersDropdown(!showUsersDropdown)
-            }
+        {/* Right: Export Button & Connection Status */}
+        <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-md)" }}>
+          {/* Export Button */}
+          <button
+            onClick={() => setShowExportDialog(true)}
             style={{
-              cursor: userCount >= 2 ? "pointer" : "default",
-              userSelect: "none",
+              padding: "6px 12px",
+              background: "var(--gray-100)",
+              color: "var(--gray-700)",
+              border: "1px solid var(--gray-200)",
+              borderRadius: "var(--border-radius)",
+              fontSize: "13px",
+              fontWeight: "500",
+              cursor: "pointer",
+              transition: "all var(--transition-fast)",
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
             }}
+            onMouseEnter={(e) => {
+              e.target.style.background = "var(--primary-color)";
+              e.target.style.color = "white";
+              e.target.style.borderColor = "var(--primary-color)";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.background = "var(--gray-100)";
+              e.target.style.color = "var(--gray-700)";
+              e.target.style.borderColor = "var(--gray-200)";
+            }}
+            title="Export (Cmd+E)"
           >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export
+          </button>
+
+          {/* Connection Status with Dropdown */}
+          <div style={{ position: "relative" }}>
+            <div
+              className="connection-status"
+              onClick={() =>
+                userCount >= 2 && setShowUsersDropdown(!showUsersDropdown)
+              }
+              style={{
+                cursor: userCount >= 2 ? "pointer" : "default",
+                userSelect: "none",
+              }}
+            >
             <div className={`status-dot status-${connectionStatus}`}></div>
             <span style={{ color: "var(--gray-700)" }}>
               {connectionStatus === "connected" && "Connected"}
@@ -1370,7 +1409,6 @@ const Canvas = ({ user, onLogout }) => {
         onSendToBack={handleSendToBack}
         onBringForward={handleBringForward}
         onSendBackward={handleSendBackward}
-        onExport={() => setShowExportDialog(true)}
       />
 
       {/* Left Sidebar - Layers & Frames */}
@@ -1537,8 +1575,8 @@ const Canvas = ({ user, onLogout }) => {
         </div>
       )}
 
-      {/* AI Command Input */}
-      <AICommandInput
+      {/* AI Chat Panel */}
+      <AIChatPanel
         onExecuteCommand={handleAICommand}
         isLoading={isAILoading}
       />

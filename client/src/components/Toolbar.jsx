@@ -46,7 +46,6 @@ const Toolbar = ({
   onSendToBack,
   onBringForward,
   onSendBackward,
-  onExport,
 }) => {
   const tools = [
     { id: "select", icon: MousePointer, label: "Select" },
@@ -193,28 +192,6 @@ const Toolbar = ({
         style={{ opacity: canRedo ? 1 : 0.5 }}
       >
         ↷
-      </button>
-
-      <div
-        style={{
-          width: "1px",
-          height: "30px",
-          background: "#ddd",
-          margin: "0 5px",
-        }}
-      />
-
-      <button
-        onClick={onExport}
-        title="Export (Cmd+E)"
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "4px",
-        }}
-      >
-        <Download size={16} />
-        Export
       </button>
 
       <div
