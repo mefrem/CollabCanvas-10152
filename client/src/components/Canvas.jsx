@@ -1279,23 +1279,23 @@ const Canvas = ({ user, onLogout }) => {
                 userSelect: "none",
               }}
             >
-            <div className={`status-dot status-${connectionStatus}`}></div>
-            <span style={{ color: "var(--gray-700)" }}>
-              {connectionStatus === "connected" && "Connected"}
-              {connectionStatus === "reconnecting" && "Reconnecting..."}
-              {connectionStatus === "disconnected" && "Disconnected"}
-            </span>
-            <span
-              style={{
-                marginLeft: "var(--spacing-md)",
-                fontSize: "12px",
-                color: "var(--gray-500)",
-              }}
-            >
-              {userCount} user{userCount !== 1 ? "s" : ""}
-              {userCount >= 2 && <span style={{ marginLeft: "4px" }}>▼</span>}
-            </span>
-          </div>
+              <div className={`status-dot status-${connectionStatus}`}></div>
+              <span style={{ color: "var(--gray-700)" }}>
+                {connectionStatus === "connected" && "Connected"}
+                {connectionStatus === "reconnecting" && "Reconnecting..."}
+                {connectionStatus === "disconnected" && "Disconnected"}
+              </span>
+              <span
+                style={{
+                  marginLeft: "var(--spacing-md)",
+                  fontSize: "12px",
+                  color: "var(--gray-500)",
+                }}
+              >
+                {userCount} user{userCount !== 1 ? "s" : ""}
+                {userCount >= 2 && <span style={{ marginLeft: "4px" }}>▼</span>}
+              </span>
+            </div>
 
           {/* Users Dropdown */}
           {showUsersDropdown && userCount >= 2 && (
@@ -1381,6 +1381,7 @@ const Canvas = ({ user, onLogout }) => {
               ))}
             </div>
           )}
+          </div>
         </div>
       </div>
 
